@@ -1,12 +1,14 @@
 use cosmwasm_std::{
     debug_print, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, CosmosMsg::Bank,
+    StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, HumanAddr,
 };
 
 use crate::msg::{HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
-use crate::state::{FUNDRAISING, EXPIRED, SUCCESSFUL, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
+use crate::state::{FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
 use primitive_types::U256;
 use crate::u256_math::{div, mul, sub};
+use crate::viewing_key::{VIEWING_KEY_SIZE, ViewingKey,};
+use secret_toolkit::crypto::sha_256;
 
 const DENOM: &str = "uscrt";
 
@@ -16,13 +18,17 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
 
+    let prng_seed = sha_256(base64::encode(msg.entropy).as_bytes()).to_vec();
+    set_prng_seed(&mut deps.storage, &prng_seed)?;
+
     let creator = deps.api.canonical_address(&msg.creator)?;
     set_creator(&mut deps.storage, &creator)?;
 
-    if env.block.time > msg.deadline {
+    let deadline = msg.deadline as u64;
+    if env.block.time > deadline {
         return Err(StdError::generic_err("Cannot create project with deadline in the past"));
     }
-    set_deadline(&mut deps.storage, msg.deadline)?;
+    set_deadline(&mut deps.storage, deadline)?;
     set_title(&mut deps.storage, msg.title)?;
     set_description(&mut deps.storage, msg.description)?;
     let pledged_message = msg.pledged_message.unwrap_or_else(|| String::from(""));
@@ -57,6 +63,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::ChangeText { title, description, pledged_message, funded_message, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message,),
         HandleMsg::Cancel { .. } => try_cancel(deps, env),
+        HandleMsg::Contribute { anonymous, public_message, private_message, entropy, .. } => try_contribute(deps, env, anonymous, public_message, private_message, entropy),
         HandleMsg::Refund { .. } => try_refund(deps, env),
         HandleMsg::PayOut { .. } => try_pay_out(deps, env),
     }
@@ -76,27 +83,94 @@ pub fn try_change_text<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::Unauthorized { backtrace: None });
     }
 
+    let mut updates: Vec<String> = vec![];
+
     if title.is_some() {
         set_title(&mut deps.storage, title.unwrap())?;
+        updates.push(String::from("title"));
     }
 
     if description.is_some() {
         set_description(&mut deps.storage, description.unwrap())?;
+        updates.push(String::from("description"));
     }
 
     if pledged_message.is_some() {
         set_pledged_message(&mut deps.storage, pledged_message.unwrap())?;
+        updates.push(String::from("pledged message"));
     }
 
     if funded_message.is_some() {
         set_funded_message(&mut deps.storage, funded_message.unwrap())?;
+        updates.push(String::from("funded message"));
+    }
+
+    let status;
+    let msg;
+
+    if updates.len() > 0 {
+        status = Success;
+        msg = format!("Updated {}", updates.join(", "));
+    } else {
+        status = Failure;
+        msg = format!("Nothing was updated");
     }
 
     debug_print("text changed successfully");
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::ChangeText { status: Success, msg: String::from("") })?),
+        data: Some(to_binary(&HandleAnswer::ChangeText { status, msg })?),
+    })
+}
+
+pub fn try_contribute<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    anonymous: Option<bool>,
+    public_message: Option<String>,
+    private_message: Option<String>,
+    entropy: String,
+) -> StdResult<HandleResponse> {
+    let status;
+    let msg;
+    let mut some_key: Option<ViewingKey> = None;
+
+    let sent_coins = env.message.sent_funds.clone();
+    if sent_coins[0].denom != DENOM {
+        status = Failure;
+        msg = String::from("Wrong denomination");
+    } else {
+        let amount = sent_coins[0].amount.u128();
+
+        if amount == 0 {
+            status = Failure;
+            msg = String::from("No coins sent");
+        } else {
+            let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+            let anonymous = anonymous.unwrap_or(false);
+
+            add_funds(&mut deps.storage, &sender_address_raw, anonymous, amount)?;
+        
+            let key = ViewingKey::new(&env, &get_prng_seed(&deps.storage)?, (&entropy).as_ref());
+            let message_sender = deps.api.canonical_address(&env.message.sender)?;
+            write_viewing_key(&mut deps.storage, &message_sender, &key);
+
+            some_key = Some(key);
+
+            status = Success;
+            msg = format!("Successfully contributed {} uscrt", amount);
+        }
+    }
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Contribute {
+            status,
+            msg,
+            key: some_key,
+        })?),
     })
 }
 
@@ -297,13 +371,42 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetStatus {} => query_status(deps),
+        QueryMsg::Status {} => query_status(deps),
+        _ => authenticated_queries(deps, msg),
     }
 }
 
+fn authenticated_queries<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    msg: QueryMsg,
+) -> QueryResult {
+    let (addresses, key) = msg.get_validation_params();
+
+    for address in addresses {
+        let canonical_addr = deps.api.canonical_address(address)?;
+
+        let expected_key = read_viewing_key(&deps.storage, &canonical_addr);
+
+        if expected_key.is_none() {
+            // Checking the key will take significant time. We don't want to exit immediately if it isn't set
+            // in a way which will allow to time the command and determine if a viewing key doesn't exist
+            key.check_viewing_key(&[0u8; VIEWING_KEY_SIZE]);
+        } else if key.check_viewing_key(expected_key.unwrap().as_slice()) {
+            return match msg {
+                // Base
+                QueryMsg::StatusAuth { address, .. } => query_status_auth(&deps, &address),
+                _ => panic!("This query type does not require authentication"),
+            };
+        }
+    }
+
+    Err(StdError::unauthorized())
+}
+
 fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> QueryResult {
-    let status = get_status(&deps.storage)?;
     let status_string;
+
+    let status = get_status(&deps.storage)?;
     if status == FUNDRAISING {
         status_string = String::from("fundraising");
     } else if status == EXPIRED {
@@ -314,7 +417,74 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
         return Err(StdError::generic_err("Error getting status"));
     }
 
-    to_binary(&QueryAnswer::GetStatus { status: status_string })
+    let creator = get_creator(&deps.storage)?;
+    let creator = deps.api.human_address(&creator)?;
+
+    let goal = get_goal(&deps.storage)?;
+    let goal = Uint128(goal);
+
+    let total = get_total(&deps.storage)?;
+    let total = Uint128(total);
+
+    let deadline = get_deadline(&deps.storage)?;
+    let deadline = deadline as i32;
+
+    let title = get_title(&deps.storage);
+    let description = get_description(&deps.storage);
+
+    to_binary(&QueryAnswer::Status { creator, status: status_string, goal, total, deadline, title, description, })
 }
 
+fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, address: &HumanAddr) -> QueryResult {
+    let status_string;
 
+    let status = get_status(&deps.storage)?;
+    if status == FUNDRAISING {
+        status_string = String::from("fundraising");
+    } else if status == EXPIRED {
+        status_string = String::from("expired");
+    } else if status == SUCCESSFUL {
+        status_string = String::from("successful");
+    } else {
+        return Err(StdError::generic_err("Error getting status"));
+    }
+
+    let creator = get_creator(&deps.storage)?;
+    let creator = deps.api.human_address(&creator)?;
+
+    let goal = get_goal(&deps.storage)?;
+    let goal = Uint128(goal);
+
+    let total = get_total(&deps.storage)?;
+    let total = Uint128(total);
+
+    let deadline = get_deadline(&deps.storage)?;
+    let deadline = deadline as i32;
+
+    let title = get_title(&deps.storage);
+    let description = get_description(&deps.storage);
+
+    let sender_address_raw = deps.api.canonical_address(&address)?;
+    let stored_funder = get_funder(&deps.storage, &sender_address_raw);
+
+    let mut pledged_message: Option<String> = None;
+    let mut funded_message: Option<String> = None;
+    let mut contribution: Option<Uint128> = None;
+
+    match stored_funder {
+        Ok(stored_funder) => {
+            if stored_funder.amount > 0 {
+                if status != EXPIRED {
+                    pledged_message = Some(get_pledged_message(&deps.storage));
+                }
+                if status == SUCCESSFUL {
+                    funded_message = Some(get_funded_message(&deps.storage));
+                }
+            }
+            contribution = Some(Uint128(stored_funder.amount));
+        },
+        Err(_) => {}
+    };
+
+    to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, goal, total, deadline, title, description, pledged_message, funded_message, contribution})
+}

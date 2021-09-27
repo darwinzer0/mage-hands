@@ -5,6 +5,7 @@ use std::any::type_name;
 use cosmwasm_std::{Uint128, CanonicalAddr, Storage, StdResult, StdError, ReadonlyStorage};
 use cosmwasm_storage::{ PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
+use crate::viewing_key::ViewingKey;
 
 pub const FUNDRAISING: u8 = 1_u8;
 pub const EXPIRED: u8 = 2_u8;
@@ -25,6 +26,17 @@ pub static COMMISSION_ADDR_KEY: &[u8] = b"comm";
 
 pub static FUNDER_LIST_PREFIX: &[u8] = b"fund";
 pub static FUNDER_AMOUNT_PREFIX: &[u8] = b"amnt";
+
+pub const PREFIX_VIEWING_KEY: &[u8] = b"vkey";
+pub const SEED_KEY: &[u8] = b"seed";
+
+pub fn set_prng_seed<S: Storage>(storage: &mut S, prng_seed: &Vec<u8>) -> StdResult<()> {
+    set_bin_data(storage, SEED_KEY, &prng_seed)
+}
+
+pub fn get_prng_seed<S: ReadonlyStorage>(storage: &S) -> StdResult<Vec<u8>> {
+    get_bin_data(storage, SEED_KEY)
+}
 
 pub fn set_status<S: Storage>(storage: &mut S, new_status: u8) -> StdResult<()> {
     if new_status < 1 || new_status > 3 {
@@ -125,6 +137,23 @@ pub fn get_fee<S: ReadonlyStorage>(storage: &S) -> StdResult<StoredFee> {
     get_bin_data(storage, FEE_KEY)
 }
 
+pub fn set_upfront<S: Storage>(storage: &mut S, upfront: u128) -> StdResult<()> {
+    set_bin_data(storage, UPFRONT_KEY, &upfront)
+}
+
+pub fn get_upfront<S: ReadonlyStorage>(storage: &S) -> StdResult<u128> {
+    get_bin_data(storage, UPFRONT_KEY)
+}
+
+pub fn set_commission_addr<S: Storage>(storage: &mut S, commission_addr: &CanonicalAddr) -> StdResult<()> {
+    set_bin_data(storage, COMMISSION_ADDR_KEY, &commission_addr)
+}
+
+pub fn get_commission_addr<S: ReadonlyStorage>(storage: &S) -> StdResult<CanonicalAddr> {
+    get_bin_data(storage, COMMISSION_ADDR_KEY)
+}
+
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StoredFunder {
     pub idx: u32,
@@ -154,7 +183,7 @@ pub fn get_funder<S: ReadonlyStorage>(storage: &S, funder_addr: &CanonicalAddr) 
 pub fn push_funder<S: Storage>(storage: &mut S, funder_addr: &CanonicalAddr) -> StdResult<u32> {
     let mut store = PrefixedStorage::new(&FUNDER_LIST_PREFIX, storage);
     let mut store = AppendStoreMut::<CanonicalAddr, _>::attach_or_create(&mut store)?;
-    store.push(&funder_addr);
+    store.push(&funder_addr)?;
     Ok(store.len() - 1)
 }
 
@@ -277,6 +306,20 @@ impl StoredFee {
         };
         Ok(fee)
     }
+}
+
+//
+// Viewing Keys
+//
+
+pub fn write_viewing_key<S: Storage>(store: &mut S, owner: &CanonicalAddr, key: &ViewingKey) {
+    let mut user_key_store = PrefixedStorage::new(PREFIX_VIEWING_KEY, store);
+    user_key_store.set(owner.as_slice(), &key.to_hashed());
+}
+
+pub fn read_viewing_key<S: Storage>(store: &S, owner: &CanonicalAddr) -> Option<Vec<u8>> {
+    let user_key_store = ReadonlyPrefixedStorage::new(PREFIX_VIEWING_KEY, store);
+    user_key_store.get(owner.as_slice())
 }
 
 //

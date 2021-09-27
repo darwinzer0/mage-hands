@@ -2,6 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use cosmwasm_std::{Binary, HumanAddr, StdResult, Uint128};
 use crate::state::Fee;
+use crate::viewing_key::ViewingKey;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -13,12 +14,14 @@ pub struct InitMsg {
     // message for people who have contributed money after project is funded
     pub funded_message: Option<String>,
     pub goal: Uint128,
-    pub deadline: u64,
+    pub deadline: i32,
 
     // commission
     pub commission_addr: HumanAddr,
     pub upfront: Uint128,
     pub fee: Fee,
+
+    pub entropy: String,
 
     pub padding: Option<String>,
 }
@@ -26,6 +29,7 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
+    // project creator: change the title, description, ...
     ChangeText {
         title: Option<String>,
         description: Option<String>,
@@ -33,15 +37,24 @@ pub enum HandleMsg {
         funded_message: Option<String>,
         padding: Option<String>,
     },
-    // project owner: sets project immediately to EXPIRED
-    Cancel {
+    // project funder: contribute funds to this project, optionally sending a message
+    // returns a viewing key
+    Contribute {
+        anonymous: Option<bool>,
+        public_message: Option<String>,
+        private_message: Option<String>,
+        entropy: String,
         padding: Option<String>,
     },
     // project funder: withdraw funds that you have pledged to this project (state must be FUNDRAISING or EXPIRED)
     Refund {
         padding: Option<String>,
     },
-    // project owner: withdraw funding (state must be SUCCESSFUL)
+    // project creator: sets project immediately to EXPIRED
+    Cancel {
+        padding: Option<String>,
+    },
+    // project creator: withdraw funding (state must be SUCCESSFUL)
     PayOut {
         padding: Option<String>,
     },
@@ -65,6 +78,11 @@ pub enum HandleAnswer {
         status: ResponseStatus,
         msg: String,
     },
+    Contribute {
+        status: ResponseStatus,
+        msg: String,
+        key: Option<ViewingKey>,
+    },
     Refund {
         status: ResponseStatus,
         msg: String,
@@ -79,13 +97,46 @@ pub enum HandleAnswer {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // GetStatus returns the current status: Fundraising, Expired, or Successful
-    GetStatus {},
+    Status {},
+    StatusAuth {
+        address: HumanAddr,
+        key: String,
+    },
+}
+
+impl QueryMsg {
+    pub fn get_validation_params(&self) -> (Vec<&HumanAddr>, ViewingKey) {
+        match self {
+            Self::StatusAuth { address, key, .. } => {
+                (vec![address], ViewingKey(key.clone()))
+            }
+            _ => panic!("This query type does not require authentication"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
-    GetStatus {
+    Status {
+        creator: HumanAddr,
         status: String,
-    }
+        goal: Uint128,
+        total: Uint128,
+        deadline: i32,
+        title: String,
+        description: String,
+    },
+    StatusAuth {
+        creator: HumanAddr,
+        status: String,
+        goal: Uint128,
+        total: Uint128,
+        deadline: i32,
+        title: String,
+        description: String,
+        pledged_message: Option<String>,
+        funded_message: Option<String>,
+        contribution: Option<Uint128>,
+    },
 }

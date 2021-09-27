@@ -3,6 +3,7 @@ pub mod msg;
 pub mod state;
 mod utils;
 mod viewing_key;
+mod u256_math;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
