@@ -1,22 +1,48 @@
 use cosmwasm_std::{
     debug_print, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdError, StdResult, Storage,
+    StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, CosmosMsg::Bank,
 };
 
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
-use crate::state::{config, config_read, State};
+use crate::msg::{HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
+use crate::state::{FUNDRAISING, EXPIRED, SUCCESSFUL, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
+use primitive_types::U256;
+use crate::u256_math::{div, mul, sub};
+
+const DENOM: &str = "uscrt";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    let state = State {
-        count: msg.count,
-        owner: deps.api.canonical_address(&env.message.sender)?,
-    };
 
-    config(&mut deps.storage).save(&state)?;
+    let creator = deps.api.canonical_address(&msg.creator)?;
+    set_creator(&mut deps.storage, &creator)?;
+
+    if env.block.time > msg.deadline {
+        return Err(StdError::generic_err("Cannot create project with deadline in the past"));
+    }
+    set_deadline(&mut deps.storage, msg.deadline)?;
+    set_title(&mut deps.storage, msg.title)?;
+    set_description(&mut deps.storage, msg.description)?;
+    let pledged_message = msg.pledged_message.unwrap_or_else(|| String::from(""));
+    set_pledged_message(&mut deps.storage, pledged_message)?;
+    let funded_message = msg.funded_message.unwrap_or_else(|| String::from(""));
+    set_funded_message(&mut deps.storage, funded_message)?;
+    
+    let goal = msg.goal.u128();
+    if goal == 0 {
+        return Err(StdError::generic_err("Goal must be greater than 0"));
+    }
+    set_goal(&mut deps.storage, goal)?;
+
+    let stored_fee = msg.fee.into_stored()?;
+    set_fee(&mut deps.storage, stored_fee)?;
+    set_upfront(&mut deps.storage, msg.upfront.u128())?;
+    set_commission_addr(&mut deps.storage, &deps.api.canonical_address(&msg.commission_addr)?);
+
+    set_status(&mut deps.storage, FUNDRAISING)?;
+    set_total(&mut deps.storage, 0_u128)?;
 
     debug_print!("Contract was initialized by {}", env.message.sender);
 
@@ -29,40 +55,241 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::Increment {} => try_increment(deps, env),
-        HandleMsg::Reset { count } => try_reset(deps, env, count),
+        HandleMsg::ChangeText { title, description, pledged_message, funded_message, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message,),
+        HandleMsg::Cancel { .. } => try_cancel(deps, env),
+        HandleMsg::Refund { .. } => try_refund(deps, env),
+        HandleMsg::PayOut { .. } => try_pay_out(deps, env),
     }
 }
 
-pub fn try_increment<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-) -> StdResult<HandleResponse> {
-    config(&mut deps.storage).update(|mut state| {
-        state.count += 1;
-        debug_print!("count = {}", state.count);
-        Ok(state)
-    })?;
-
-    debug_print("count incremented successfully");
-    Ok(HandleResponse::default())
-}
-
-pub fn try_reset<S: Storage, A: Api, Q: Querier>(
+pub fn try_change_text<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    count: i32,
+    title: Option<String>,
+    description: Option<String>,
+    pledged_message: Option<String>,
+    funded_message: Option<String>,
 ) -> StdResult<HandleResponse> {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    config(&mut deps.storage).update(|mut state| {
-        if sender_address_raw != state.owner {
-            return Err(StdError::Unauthorized { backtrace: None });
+    let creator = get_creator(&deps.storage)?;
+    if sender_address_raw != creator {
+        return Err(StdError::Unauthorized { backtrace: None });
+    }
+
+    if title.is_some() {
+        set_title(&mut deps.storage, title.unwrap())?;
+    }
+
+    if description.is_some() {
+        set_description(&mut deps.storage, description.unwrap())?;
+    }
+
+    if pledged_message.is_some() {
+        set_pledged_message(&mut deps.storage, pledged_message.unwrap())?;
+    }
+
+    if funded_message.is_some() {
+        set_funded_message(&mut deps.storage, funded_message.unwrap())?;
+    }
+
+    debug_print("text changed successfully");
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::ChangeText { status: Success, msg: String::from("") })?),
+    })
+}
+
+pub fn try_cancel<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> StdResult<HandleResponse> {
+    let mut response_status: ResponseStatus = Failure;
+    let mut msg: String = String::from("");
+
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let creator = get_creator(&deps.storage)?;
+    if sender_address_raw != creator {
+        return Err(StdError::Unauthorized { backtrace: None });
+    }
+
+    let status = get_status(&deps.storage)?;
+    if status == EXPIRED {
+        msg = String::from("Cannot cancel an expired project");
+    } else if status == SUCCESSFUL {
+        msg = String::from("Cannot cancel a funded project");
+    } else if status == FUNDRAISING {
+        response_status = Success;
+        set_status(&mut deps.storage, EXPIRED)?;
+    }
+
+    debug_print("project cancelled successfully");
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Cancel { status: response_status, msg })?),
+    })
+}
+
+pub fn try_refund<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> StdResult<HandleResponse> {
+    let response_status;
+    let msg;
+
+    let mut messages = vec![];
+    let status = get_status(&deps.storage)?;
+    if status == SUCCESSFUL {
+        response_status = Failure;
+        msg = String::from("Cannot receive refund after project successfully funded");
+    } else {
+        let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+        let refund_amount = clear_funds(&mut deps.storage, &sender_address_raw)?;
+
+        if refund_amount == 0 {
+            response_status = Failure;
+            msg = String::from("No funds to refund");
+        } else {
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                from_address: env.contract.address.clone(),
+                to_address: env.message.sender,
+                amount: vec![Coin {
+                    denom: DENOM.to_string(),
+                    amount: Uint128(refund_amount),
+                }],
+            }));
+            response_status = Success;
+            msg = format!("{} uscrt refunded", refund_amount);
         }
-        state.count = count;
-        Ok(state)
-    })?;
-    debug_print("count reset successfully");
-    Ok(HandleResponse::default())
+    }
+
+    debug_print("refund processed successfully");
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Refund {
+            status: response_status,
+            msg,
+        })?),
+    })
+}
+
+pub fn try_pay_out<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+) -> StdResult<HandleResponse> {
+    let response_status;
+    let msg;
+
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let creator = get_creator(&deps.storage)?;
+    if sender_address_raw != creator {
+        return Err(StdError::Unauthorized { backtrace: None });
+    }
+
+    let mut messages = vec![];
+    let status = get_status(&deps.storage)?;
+    if status == SUCCESSFUL {
+        let total = get_total(&deps.storage)?;
+        let fee = get_fee(&deps.storage)?;
+        
+        if fee.commission_rate_nom == 0 {
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                from_address: env.contract.address.clone(),
+                to_address: env.message.sender,
+                amount: vec![Coin {
+                    denom: DENOM.to_string(),
+                    amount: Uint128(total),
+                }],
+            }));
+            msg = format!("Pay out {} uscrt", total);
+        } else {
+            let total_u256 = Some(U256::from(total));
+            let commission_rate_nom = Some(U256::from(fee.commission_rate_nom));
+            let commission_rate_denom =
+                Some(U256::from(fee.commission_rate_denom));
+            let commission_addr = get_commission_addr(&deps.storage)?;
+            let commission_addr_human = deps.api.human_address(&commission_addr)?;
+            let upfront = get_upfront(&deps.storage)?;
+            let upfront_u256 = Some(U256::from(upfront));
+
+            let commission_amount = div(mul(total_u256, commission_rate_nom), commission_rate_denom)
+            .ok_or_else(|| {
+                StdError::generic_err(format!(
+                    "Cannot calculate total {} * commission_rate_nom {} / commission_rate_denom {}",
+                    total_u256.unwrap(),
+                    commission_rate_nom.unwrap(),
+                    commission_rate_denom.unwrap(),
+                ))
+            })?;
+
+            let commission_amount_u128 = commission_amount.low_u128();
+            if commission_amount_u128 < upfront || commission_amount_u128 == 0 { // take no commission
+                messages.push(CosmosMsg::Bank(BankMsg::Send {
+                    from_address: env.contract.address.clone(),
+                    to_address: env.message.sender,
+                    amount: vec![Coin {
+                        denom: DENOM.to_string(),
+                        amount: Uint128(total),
+                    }],
+                }));
+                msg = format!("Pay out {} uscrt", total);
+            } else { // subtract upfront fee from commission
+                let commission_amount = sub(Some(commission_amount), upfront_u256).ok_or_else(|| {
+                    StdError::generic_err(format!(
+                        "Cannot calculate commission_amouut {} - upfront {}",
+                        commission_amount,
+                        upfront_u256.unwrap(),
+                    ))
+                })?;
+
+                let payment_amount = sub(total_u256, Some(commission_amount)).ok_or_else(|| {
+                    StdError::generic_err(format!(
+                        "Cannot calculate total {} - adjusted commission_amount {}",
+                        total_u256.unwrap(),
+                        commission_amount,
+                    ))
+                })?;
+
+                let creator_human_addr = deps.api.human_address(&creator)?;
+                messages.push(CosmosMsg::Bank(BankMsg::Send {
+                    from_address: env.contract.address.clone(),
+                    to_address: creator_human_addr,
+                    amount: vec![Coin {
+                        denom: DENOM.to_string(),
+                        amount: Uint128(payment_amount.low_u128()),
+                    }],
+                }));
+
+                messages.push(CosmosMsg::Bank(BankMsg::Send {
+                    from_address: env.contract.address,
+                    to_address: commission_addr_human,
+                    amount: vec![Coin {
+                        denom: DENOM.to_string(),
+                        amount: Uint128(commission_amount.low_u128()),
+                    }],
+                }));
+
+                msg = format!("Pay out {} uscrt: payment {}, fee {}", total, payment_amount, commission_amount.low_u128());
+            }
+        }
+
+        response_status = Success;
+    } else {
+        response_status = Failure;
+        msg = String::from("Cannot receive pay out unless project successfully funded");
+    }
+
+    debug_print("refund processed successfully");
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::PayOut {
+            status: response_status,
+            msg,
+        })?),
+    })
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -70,82 +297,24 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetCount {} => to_binary(&query_count(deps)?),
+        QueryMsg::GetStatus {} => query_status(deps),
     }
 }
 
-fn query_count<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<CountResponse> {
-    let state = config_read(&deps.storage).load()?;
-    Ok(CountResponse { count: state.count })
+fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> QueryResult {
+    let status = get_status(&deps.storage)?;
+    let status_string;
+    if status == FUNDRAISING {
+        status_string = String::from("fundraising");
+    } else if status == EXPIRED {
+        status_string = String::from("expired");
+    } else if status == SUCCESSFUL {
+        status_string = String::from("successful");
+    } else {
+        return Err(StdError::generic_err("Error getting status"));
+    }
+
+    to_binary(&QueryAnswer::GetStatus { status: status_string })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, StdError};
 
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(17, value.count);
-    }
-
-    #[test]
-    fn increment() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // anyone can increment
-        let env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Increment {};
-        let _res = handle(&mut deps, env, msg).unwrap();
-
-        // should increase counter by 1
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(18, value.count);
-    }
-
-    #[test]
-    fn reset() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // not anyone can reset
-        let unauth_env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let res = handle(&mut deps, unauth_env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-
-        // only the original creator can reset the counter
-        let auth_env = mock_env("creator", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let _res = handle(&mut deps, auth_env, msg).unwrap();
-
-        // should now be 5
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(5, value.count);
-    }
-}
