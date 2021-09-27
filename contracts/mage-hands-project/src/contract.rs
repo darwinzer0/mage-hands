@@ -45,7 +45,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let stored_fee = msg.fee.into_stored()?;
     set_fee(&mut deps.storage, stored_fee)?;
     set_upfront(&mut deps.storage, msg.upfront.u128())?;
-    set_commission_addr(&mut deps.storage, &deps.api.canonical_address(&msg.commission_addr)?);
+    set_commission_addr(&mut deps.storage, &deps.api.canonical_address(&msg.commission_addr)?)?;
 
     set_status(&mut deps.storage, FUNDRAISING)?;
     set_total(&mut deps.storage, 0_u128)?;
@@ -63,13 +63,34 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::ChangeText { title, description, pledged_message, funded_message, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message,),
         HandleMsg::Cancel { .. } => try_cancel(deps, env),
-        HandleMsg::Contribute { anonymous, public_message, private_message, entropy, .. } => try_contribute(deps, env, anonymous, public_message, private_message, entropy),
+        HandleMsg::Contribute { anonymous, entropy, .. } => try_contribute(deps, env, anonymous, entropy),
         HandleMsg::Refund { .. } => try_refund(deps, env),
         HandleMsg::PayOut { .. } => try_pay_out(deps, env),
+        HandleMsg::GenerateViewingKey { entropy, .. } => try_generate_viewing_key(deps, env, entropy),
     }
 }
 
-pub fn try_change_text<S: Storage, A: Api, Q: Querier>(
+fn try_generate_viewing_key<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    entropy: String,
+) -> StdResult<HandleResponse> {
+    let prng_seed = get_prng_seed(&deps.storage)?;
+
+    let key = ViewingKey::new(&env, &prng_seed, (&entropy).as_ref());
+
+    let message_sender = deps.api.canonical_address(&env.message.sender)?;
+
+    write_viewing_key(&mut deps.storage, &message_sender, &key);
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::GenerateViewingKey { key })?),
+    })
+}
+
+fn try_change_text<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     title: Option<String>,
@@ -124,12 +145,10 @@ pub fn try_change_text<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn try_contribute<S: Storage, A: Api, Q: Querier>(
+fn try_contribute<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     anonymous: Option<bool>,
-    public_message: Option<String>,
-    private_message: Option<String>,
     entropy: String,
 ) -> StdResult<HandleResponse> {
     let status;
@@ -151,12 +170,16 @@ pub fn try_contribute<S: Storage, A: Api, Q: Querier>(
             let anonymous = anonymous.unwrap_or(false);
 
             add_funds(&mut deps.storage, &sender_address_raw, anonymous, amount)?;
-        
-            let key = ViewingKey::new(&env, &get_prng_seed(&deps.storage)?, (&entropy).as_ref());
-            let message_sender = deps.api.canonical_address(&env.message.sender)?;
-            write_viewing_key(&mut deps.storage, &message_sender, &key);
 
-            some_key = Some(key);
+            let vk = read_viewing_key(&deps.storage, &sender_address_raw);
+        
+            if vk.is_none() {
+                let key = ViewingKey::new(&env, &get_prng_seed(&deps.storage)?, (&entropy).as_ref());
+                let message_sender = deps.api.canonical_address(&env.message.sender)?;
+                write_viewing_key(&mut deps.storage, &message_sender, &key);
+
+                some_key = Some(key);
+            }
 
             status = Success;
             msg = format!("Successfully contributed {} uscrt", amount);
@@ -174,7 +197,7 @@ pub fn try_contribute<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn try_cancel<S: Storage, A: Api, Q: Querier>(
+fn try_cancel<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> StdResult<HandleResponse> {
@@ -249,7 +272,7 @@ pub fn try_refund<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn try_pay_out<S: Storage, A: Api, Q: Querier>(
+fn try_pay_out<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
 ) -> StdResult<HandleResponse> {

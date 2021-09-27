@@ -37,12 +37,10 @@ pub enum HandleMsg {
         funded_message: Option<String>,
         padding: Option<String>,
     },
-    // project funder: contribute funds to this project, optionally sending a message
+    // project funder: contribute funds to this project
     // returns a viewing key
     Contribute {
         anonymous: Option<bool>,
-        public_message: Option<String>,
-        private_message: Option<String>,
         entropy: String,
         padding: Option<String>,
     },
@@ -56,6 +54,10 @@ pub enum HandleMsg {
     },
     // project creator: withdraw funding (state must be SUCCESSFUL)
     PayOut {
+        padding: Option<String>,
+    },
+    GenerateViewingKey {
+        entropy: String,
         padding: Option<String>,
     },
 }
@@ -90,6 +92,9 @@ pub enum HandleAnswer {
     PayOut {
         status: ResponseStatus,
         msg: String,
+    },
+    GenerateViewingKey {
+        key: ViewingKey,
     },
 }
 
