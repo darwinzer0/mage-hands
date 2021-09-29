@@ -1,22 +1,33 @@
 use cosmwasm_std::{
     debug_print, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdError, StdResult, Storage,
+    StdError, StdResult, Storage, Uint128, HumanAddr, CosmosMsg, BankMsg, Coin, QueryResult,
 };
+use crate::msg::{QueryAnswer, HandleAnswer, ProjectInitMsg, HandleMsg, InitMsg, QueryMsg, ResponseStatus::Failure, ResponseStatus::Success,};
+use crate::state::{project_count, get_projects, add_project, set_config, get_config, Config, Fee, set_creating_project, is_creating_project};
+use secret_toolkit::utils::{InitCallback};
 
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
-use crate::state::{config, config_read, State};
+const DENOM: &str = "uscrt";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    let state = State {
-        count: msg.count,
-        owner: deps.api.canonical_address(&env.message.sender)?,
-    };
+    let owner;
+    if msg.owner.is_some() {
+        owner = deps.api.canonical_address(&msg.owner.unwrap())?;
+    } else {
+        owner = deps.api.canonical_address(&env.message.sender)?;
+    }
 
-    config(&mut deps.storage).save(&state)?;
+    set_config(
+        &mut deps.storage, 
+        owner, 
+        msg.default_upfront.u128(), 
+        msg.default_fee.into_stored()?,
+        msg.project_contract_code_id,
+        msg.project_contract_code_hash.as_bytes().to_vec(),
+    )?;
 
     debug_print!("Contract was initialized by {}", env.message.sender);
 
@@ -29,40 +40,188 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::Increment {} => try_increment(deps, env),
-        HandleMsg::Reset { count } => try_reset(deps, env, count),
+        HandleMsg::Create { 
+            title, 
+            description, 
+            pledged_message, 
+            funded_message, 
+            goal, 
+            deadline, 
+            entropy, .. } => try_create(deps, env, title, description, pledged_message, funded_message, goal, deadline, entropy),
+        HandleMsg::Config { owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash, .. } => try_config(deps, env, owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash),
+        HandleMsg::Register { contract_addr } => try_register(deps, env, contract_addr ),
     }
 }
 
-pub fn try_increment<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-) -> StdResult<HandleResponse> {
-    config(&mut deps.storage).update(|mut state| {
-        state.count += 1;
-        debug_print!("count = {}", state.count);
-        Ok(state)
-    })?;
-
-    debug_print("count incremented successfully");
-    Ok(HandleResponse::default())
-}
-
-pub fn try_reset<S: Storage, A: Api, Q: Querier>(
+pub fn try_create<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    count: i32,
+    title: String, 
+    description: String,
+    pledged_message: Option<String>,
+    funded_message: Option<String>,
+    goal: Uint128,
+    deadline: u64,
+    entropy: String,
 ) -> StdResult<HandleResponse> {
+    let status;
+    let msg;
+
+    let sent_coins = env.message.sent_funds.clone();
+    let config: Config = get_config(&deps.storage)?;
+    let mut messages = vec![];
+
+    if sent_coins[0].denom != DENOM {
+        // sent wrong kind of coins
+        status = Failure;
+        msg = String::from("Wrong denomination");
+    } else if sent_coins[0].amount.u128() != config.default_upfront {
+        status = Failure;
+        msg = format!("Upfront fee not correct, should be {} uscrt", config.default_upfront);
+    } else {
+        set_creating_project(&mut deps.storage, true)?;
+
+        let project_init_msg = ProjectInitMsg {
+            creator: env.message.sender,
+            title,
+            description,
+            pledged_message,
+            funded_message,
+            goal,
+            deadline,
+            commission_addr: deps.api.human_address(&config.owner)?,
+            upfront: Uint128(config.default_upfront),
+            fee: config.default_fee.into_humanized()?,
+            entropy,
+            source_contract: env.contract.address.clone(),
+            source_hash: env.contract_code_hash,
+            padding: None,
+        };
+        let label = format!(
+            "{}-Mage-Hands-Project-{}-{}",
+            &env.contract.address.clone(),
+            project_count(&deps.storage)?,
+            &base64::encode(env.block.time.to_be_bytes()),
+        );
+
+        let config: Config = get_config(&deps.storage)?;
+
+        let cosmos_msg = project_init_msg.to_cosmos_msg(
+            label.clone(),
+            config.project_contract_code_id,
+            String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
+            None,
+        )?;
+        messages.push(cosmos_msg);
+
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: deps.api.human_address(&config.owner)?,
+            amount: vec![Coin {
+                denom: DENOM.to_string(),
+                amount: sent_coins[0].amount,
+            }],
+        }));
+
+        status = Success;
+        msg = format!("Created project contract {}", label);
+    }
+
+    debug_print("created new project successfully");
+    Ok(HandleResponse {
+        messages,
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Create { status, msg })?),
+    })
+}
+
+fn try_register<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    _env: Env,
+    contract_addr: HumanAddr,
+) -> StdResult<HandleResponse> {
+    if !is_creating_project(&deps.storage) {
+        return Err(StdError::Unauthorized { backtrace: None });
+    }
+
+    set_creating_project(&mut deps.storage, false)?;
+    let project_id = add_project(&mut deps.storage, deps.api.canonical_address(&contract_addr)?)?;
+
+    let status = Success;
+    let msg = format!("Registered contract {}", contract_addr);
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Register {status, msg, project_id, project_addr: contract_addr})?),
+    })
+}
+
+fn try_config<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    owner: Option<HumanAddr>,
+    default_upfront: Option<Uint128>,
+    default_fee: Option<Fee>,
+    project_contract_code_id: Option<u64>,
+    project_contract_code_hash: Option<String>,
+) -> StdResult<HandleResponse> {
+    let status;
+    let msg;
+
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
-    config(&mut deps.storage).update(|mut state| {
-        if sender_address_raw != state.owner {
-            return Err(StdError::Unauthorized { backtrace: None });
-        }
-        state.count = count;
-        Ok(state)
-    })?;
-    debug_print("count reset successfully");
-    Ok(HandleResponse::default())
+    let mut config = get_config(&deps.storage)?;
+
+    if sender_address_raw != config.owner {
+        return Err(StdError::Unauthorized { backtrace: None });
+    }
+
+    if owner.is_some() {
+        config.owner = deps.api.canonical_address(&owner.unwrap())?;
+    }
+
+    if default_upfront.is_some() {
+        config.default_upfront = default_upfront.unwrap().u128();
+    }
+
+    if default_fee.is_some() {
+        config.default_fee = default_fee.unwrap().into_stored()?;
+    }
+
+    if project_contract_code_id.is_some() {
+        config.project_contract_code_id = project_contract_code_id.unwrap();
+    }
+
+    if project_contract_code_hash.is_some() {
+        config.project_contract_code_hash = project_contract_code_hash.unwrap().as_bytes().to_vec();
+    }
+
+    set_config(
+        &mut deps.storage, 
+        config.owner.clone(), 
+        config.default_upfront, 
+        config.default_fee.clone(),
+        config.project_contract_code_id.clone(),
+        config.project_contract_code_hash.clone(),
+    )?;
+
+    status = Success;
+    msg = format!(
+        "New config: owner {}, default_upfront {}, default_fee {}/{}, project code id {}, project code hash {}", 
+        config.owner, 
+        config.default_upfront, 
+        config.default_fee.commission_rate_nom, 
+        config.default_fee.commission_rate_denom,
+        config.project_contract_code_id,
+        String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
+    );
+
+    debug_print("config set successfully");
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::Config {status, msg})?),
+    })
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -70,82 +229,27 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetCount {} => to_binary(&query_count(deps)?),
+        QueryMsg::Projects { page, page_size } => to_binary(&query_projects(deps, page, page_size)?),
     }
 }
 
-fn query_count<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<CountResponse> {
-    let state = config_read(&deps.storage).load()?;
-    Ok(CountResponse { count: state.count })
+fn query_projects<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    page: u32,
+    page_size: u32,
+) -> QueryResult {
+    if page_size < 1 {
+        return Err(StdError::generic_err("Invalid page_size"));
+    }
+    let mut projects: Vec<HumanAddr> = vec![];
+    let projects_wrapped = get_projects(&deps.storage, page, page_size);
+    if projects_wrapped.is_ok() {
+        projects = projects_wrapped
+            .unwrap()
+            .iter()
+            .map(|project| deps.api.human_address(project).unwrap())
+            .collect();
+    }
+    to_binary(&QueryAnswer::Projects { projects })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, StdError};
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(17, value.count);
-    }
-
-    #[test]
-    fn increment() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // anyone can increment
-        let env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Increment {};
-        let _res = handle(&mut deps, env, msg).unwrap();
-
-        // should increase counter by 1
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(18, value.count);
-    }
-
-    #[test]
-    fn reset() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // not anyone can reset
-        let unauth_env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let res = handle(&mut deps, unauth_env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-
-        // only the original creator can reset the counter
-        let auth_env = mock_env("creator", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let _res = handle(&mut deps, auth_env, msg).unwrap();
-
-        // should now be 5
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(5, value.count);
-    }
-}
