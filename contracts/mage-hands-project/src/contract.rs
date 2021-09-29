@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{PlatformHandleMsg, HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
-use crate::state::{FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
+use crate::state::{paid_out, is_paid_out, FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
 use primitive_types::U256;
 use crate::u256_math::{div, mul, sub};
 use crate::viewing_key::{VIEWING_KEY_SIZE, ViewingKey,};
@@ -124,7 +124,7 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
     let project_status = get_status(&deps.storage)?;
     let deadline = get_deadline(&deps.storage)?;
 
-    if project_status == SUCCESSFUL || project_status == EXPIRED {
+    if project_status == SUCCESSFUL || project_status == EXPIRED || is_paid_out(&deps.storage) {
         status = Failure;
         msg = String::from("Cannot change a project that has been completed");
     } else if env.block.time > deadline {
@@ -190,7 +190,7 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
     if sent_coins[0].denom != DENOM {
         status = Failure;
         msg = String::from("Wrong denomination");
-    } else if project_status == EXPIRED {
+    } else if project_status == EXPIRED || is_paid_out(&deps.storage) {
         status = Failure;
         msg = String::from("Project is not accepting contributions")
     } else if env.block.time > deadline {
@@ -261,7 +261,7 @@ fn try_cancel<S: Storage, A: Api, Q: Querier>(
 
     if status == EXPIRED {
         msg = String::from("Cannot cancel an expired project");
-    } else if status == SUCCESSFUL {
+    } else if status == SUCCESSFUL || is_paid_out(&deps.storage) {
         msg = String::from("Cannot cancel a funded project");
     } else if status == FUNDRAISING {
         response_status = Success;
@@ -285,7 +285,7 @@ pub fn try_refund<S: Storage, A: Api, Q: Querier>(
 
     let mut messages = vec![];
     let status = get_status(&deps.storage)?;
-    if status == SUCCESSFUL {
+    if status == SUCCESSFUL || is_paid_out(&deps.storage) {
         response_status = Failure;
         msg = String::from("Cannot receive refund after project successfully funded");
     } else {
@@ -331,6 +331,10 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
     let creator = get_creator(&deps.storage)?;
     if sender_address_raw != creator {
         return Err(StdError::Unauthorized { backtrace: None });
+    }
+
+    if is_paid_out(&deps.storage) {
+        return Err(StdError::generic_err("Already paid out"));
     }
 
     let mut messages = vec![];
@@ -423,6 +427,7 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
             }
         }
 
+        paid_out(&mut deps.storage)?;
         response_status = Success;
     } else {
         if env.block.time > deadline && status == FUNDRAISING {
@@ -497,6 +502,8 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
     let creator = get_creator(&deps.storage)?;
     let creator = deps.api.human_address(&creator)?;
 
+    let po = is_paid_out(&deps.storage);
+
     let goal = get_goal(&deps.storage)?;
     let goal = Uint128(goal);
 
@@ -509,7 +516,7 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
     let title = get_title(&deps.storage);
     let description = get_description(&deps.storage);
 
-    to_binary(&QueryAnswer::Status { creator, status: status_string, goal, total, deadline, title, description, })
+    to_binary(&QueryAnswer::Status { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, })
 }
 
 fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, address: &HumanAddr) -> QueryResult {
@@ -529,6 +536,8 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
 
     let creator = get_creator(&deps.storage)?;
     let creator = deps.api.human_address(&creator)?;
+
+    let po = is_paid_out(&deps.storage);
 
     let goal = get_goal(&deps.storage)?;
     let goal = Uint128(goal);
@@ -564,5 +573,5 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
         Err(_) => {}
     };
 
-    to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, goal, total, deadline, title, description, pledged_message, funded_message, contribution})
+    to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, pledged_message, funded_message, contribution})
 }

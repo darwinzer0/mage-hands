@@ -139,6 +139,7 @@ pub enum QueryAnswer {
     Status {
         creator: HumanAddr,
         status: String,
+        paid_out: bool,
         goal: Uint128,
         total: Uint128,
         deadline: i32,
@@ -148,6 +149,7 @@ pub enum QueryAnswer {
     StatusAuth {
         creator: HumanAddr,
         status: String,
+        paid_out: bool,
         goal: Uint128,
         total: Uint128,
         deadline: i32,

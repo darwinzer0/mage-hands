@@ -30,6 +30,8 @@ pub static FUNDER_AMOUNT_PREFIX: &[u8] = b"amnt";
 pub const PREFIX_VIEWING_KEY: &[u8] = b"vkey";
 pub const SEED_KEY: &[u8] = b"seed";
 
+pub static PAID_OUT_KEY: &[u8] = b"pout";
+
 pub fn set_prng_seed<S: Storage>(storage: &mut S, prng_seed: &Vec<u8>) -> StdResult<()> {
     set_bin_data(storage, SEED_KEY, &prng_seed)
 }
@@ -306,6 +308,14 @@ impl StoredFee {
         };
         Ok(fee)
     }
+}
+
+pub fn paid_out<S: Storage>(storage: &mut S) -> StdResult<()> {
+    set_bin_data(storage, PAID_OUT_KEY, &true)
+}
+
+pub fn is_paid_out<S: ReadonlyStorage>(storage: &S) -> bool {
+    get_bin_data(storage, PAID_OUT_KEY).unwrap_or_else(|_| false)
 }
 
 //
