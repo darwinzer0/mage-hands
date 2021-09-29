@@ -1,14 +1,15 @@
 use cosmwasm_std::{
     debug_print, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, HumanAddr,
+    StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, HumanAddr, log,
 };
 
-use crate::msg::{HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
+use crate::msg::{PlatformHandleMsg, HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
 use crate::state::{FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
 use primitive_types::U256;
 use crate::u256_math::{div, mul, sub};
 use crate::viewing_key::{VIEWING_KEY_SIZE, ViewingKey,};
 use secret_toolkit::crypto::sha_256;
+use secret_toolkit::utils::HandleCallback;
 
 const DENOM: &str = "uscrt";
 
@@ -52,7 +53,20 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     debug_print!("Contract was initialized by {}", env.message.sender);
 
-    Ok(InitResponse::default())
+    let register_msg = PlatformHandleMsg::Register {
+        contract_addr: env.contract.address,
+    };
+    
+    let cosmos_msg = register_msg.to_cosmos_msg(
+        msg.source_hash,
+        msg.source_contract,
+        None,
+    )?;
+
+    Ok(InitResponse {
+        messages: vec![cosmos_msg],
+        log: vec![log("status", "success")], // See https://github.com/CosmWasm/wasmd/pull/386
+    })
 }
 
 pub fn handle<S: Storage, A: Api, Q: Querier>(
@@ -98,43 +112,57 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
     pledged_message: Option<String>,
     funded_message: Option<String>,
 ) -> StdResult<HandleResponse> {
+    let status;
+    let msg;
+
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let creator = get_creator(&deps.storage)?;
     if sender_address_raw != creator {
         return Err(StdError::Unauthorized { backtrace: None });
     }
 
-    let mut updates: Vec<String> = vec![];
+    let project_status = get_status(&deps.storage)?;
+    let deadline = get_deadline(&deps.storage)?;
 
-    if title.is_some() {
-        set_title(&mut deps.storage, title.unwrap())?;
-        updates.push(String::from("title"));
-    }
-
-    if description.is_some() {
-        set_description(&mut deps.storage, description.unwrap())?;
-        updates.push(String::from("description"));
-    }
-
-    if pledged_message.is_some() {
-        set_pledged_message(&mut deps.storage, pledged_message.unwrap())?;
-        updates.push(String::from("pledged message"));
-    }
-
-    if funded_message.is_some() {
-        set_funded_message(&mut deps.storage, funded_message.unwrap())?;
-        updates.push(String::from("funded message"));
-    }
-
-    let status;
-    let msg;
-
-    if updates.len() > 0 {
-        status = Success;
-        msg = format!("Updated {}", updates.join(", "));
-    } else {
+    if project_status == SUCCESSFUL || project_status == EXPIRED {
         status = Failure;
-        msg = format!("Nothing was updated");
+        msg = String::from("Cannot change a project that has been completed");
+    } else if env.block.time > deadline {
+        // was still FUNDRAISING but deadline expired
+        set_status(&mut deps.storage, EXPIRED)?;
+        status = Failure;
+        msg = String::from("Cannot change a project that has been completed");
+    } else {
+
+        let mut updates: Vec<String> = vec![];
+
+        if title.is_some() {
+            set_title(&mut deps.storage, title.unwrap())?;
+            updates.push(String::from("title"));
+        }
+
+        if description.is_some() {
+            set_description(&mut deps.storage, description.unwrap())?;
+            updates.push(String::from("description"));
+        }
+
+        if pledged_message.is_some() {
+            set_pledged_message(&mut deps.storage, pledged_message.unwrap())?;
+            updates.push(String::from("pledged message"));
+        }
+
+        if funded_message.is_some() {
+            set_funded_message(&mut deps.storage, funded_message.unwrap())?;
+            updates.push(String::from("funded message"));
+        }
+
+        if updates.len() > 0 {
+            status = Success;
+            msg = format!("Updated {}", updates.join(", "));
+        } else {
+            status = Failure;
+            msg = format!("Nothing was updated");
+        }
     }
 
     debug_print("text changed successfully");
@@ -154,11 +182,23 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
     let status;
     let msg;
     let mut some_key: Option<ViewingKey> = None;
+    let project_status = get_status(&deps.storage)?;
 
     let sent_coins = env.message.sent_funds.clone();
+    let deadline = get_deadline(&deps.storage)?;
+
     if sent_coins[0].denom != DENOM {
         status = Failure;
         msg = String::from("Wrong denomination");
+    } else if project_status == EXPIRED {
+        status = Failure;
+        msg = String::from("Project is not accepting contributions")
+    } else if env.block.time > deadline {
+        if project_status == FUNDRAISING {
+            set_status(&mut deps.storage, EXPIRED)?;
+        }
+        status = Failure;
+        msg = String::from("Project is not accepting contributions")
     } else {
         let amount = sent_coins[0].amount.u128();
 
@@ -166,10 +206,17 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
             status = Failure;
             msg = String::from("No coins sent");
         } else {
+            let total = get_total(&deps.storage)?;
             let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
             let anonymous = anonymous.unwrap_or(false);
 
             add_funds(&mut deps.storage, &sender_address_raw, anonymous, amount)?;
+
+            let goal = get_goal(&deps.storage)?;
+
+            if total + amount >= goal {
+                set_status(&mut deps.storage, SUCCESSFUL)?;
+            }
 
             let vk = read_viewing_key(&deps.storage, &sender_address_raw);
         
@@ -211,6 +258,7 @@ fn try_cancel<S: Storage, A: Api, Q: Querier>(
     }
 
     let status = get_status(&deps.storage)?;
+
     if status == EXPIRED {
         msg = String::from("Cannot cancel an expired project");
     } else if status == SUCCESSFUL {
@@ -287,7 +335,10 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
 
     let mut messages = vec![];
     let status = get_status(&deps.storage)?;
-    if status == SUCCESSFUL {
+    let deadline = get_deadline(&deps.storage)?;
+
+    // time has completed and it is successful
+    if env.block.time > deadline && status == SUCCESSFUL {
         let total = get_total(&deps.storage)?;
         let fee = get_fee(&deps.storage)?;
         
@@ -374,11 +425,14 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
 
         response_status = Success;
     } else {
+        if env.block.time > deadline && status == FUNDRAISING {
+            set_status(&mut deps.storage, EXPIRED)?;
+        }
         response_status = Failure;
-        msg = String::from("Cannot receive pay out unless project successfully funded");
+        msg = String::from("Cannot receive pay out unless project successfully funded and deadline past");
     }
 
-    debug_print("refund processed successfully");
+    debug_print("refund processed");
     Ok(HandleResponse {
         messages,
         log: vec![],
@@ -462,6 +516,7 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
     let status_string;
 
     let status = get_status(&deps.storage)?;
+
     if status == FUNDRAISING {
         status_string = String::from("fundraising");
     } else if status == EXPIRED {

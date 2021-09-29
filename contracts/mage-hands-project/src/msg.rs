@@ -1,8 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Binary, HumanAddr, StdResult, Uint128};
+use cosmwasm_std::{HumanAddr, Uint128};
 use crate::state::Fee;
 use crate::viewing_key::ViewingKey;
+use secret_toolkit::utils::{HandleCallback};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -23,7 +24,19 @@ pub struct InitMsg {
 
     pub entropy: String,
 
+    pub source_contract: HumanAddr,
+    pub source_hash: String,
+
     pub padding: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum PlatformHandleMsg {
+    Register { contract_addr: HumanAddr, },
+}
+
+impl HandleCallback for PlatformHandleMsg {
+    const BLOCK_SIZE: usize = 256;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
