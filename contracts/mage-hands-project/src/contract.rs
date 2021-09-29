@@ -188,8 +188,7 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
     let deadline = get_deadline(&deps.storage)?;
 
     if sent_coins[0].denom != DENOM {
-        status = Failure;
-        msg = String::from("Wrong denomination");
+        return Err(StdError::generic_err("Wrong denomination"));
     } else if project_status == EXPIRED || is_paid_out(&deps.storage) {
         status = Failure;
         msg = String::from("Project is not accepting contributions")
@@ -233,8 +232,17 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
         }
     }
 
+    let mut messages = vec![];
+    if status == Failure { // return coins to sender
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: env.message.sender,
+            amount: sent_coins,
+        }));
+    }
+
     Ok(HandleResponse {
-        messages: vec![],
+        messages,
         log: vec![],
         data: Some(to_binary(&HandleAnswer::Contribute {
             status,
