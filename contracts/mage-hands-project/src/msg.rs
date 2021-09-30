@@ -15,7 +15,7 @@ pub struct InitMsg {
     // message for people who have contributed money after project is funded
     pub funded_message: Option<String>,
     pub goal: Uint128,
-    pub deadline: i32,
+    pub deadline: u64,
 
     // commission
     pub commission_addr: HumanAddr,
@@ -66,7 +66,7 @@ pub enum HandleMsg {
     Cancel {
         padding: Option<String>,
     },
-    // project creator: withdraw funding (state must be SUCCESSFUL)
+    // project creator: withdraw funding (state must be SUCCESSFUL and deadline past)
     PayOut {
         padding: Option<String>,
     },
@@ -143,7 +143,7 @@ pub enum QueryAnswer {
         paid_out: bool,
         goal: Uint128,
         total: Uint128,
-        deadline: i32,
+        deadline: u64,
         title: String,
         description: String,
     },
@@ -153,7 +153,7 @@ pub enum QueryAnswer {
         paid_out: bool,
         goal: Uint128,
         total: Uint128,
-        deadline: i32,
+        deadline: u64,
         title: String,
         description: String,
         pledged_message: Option<String>,

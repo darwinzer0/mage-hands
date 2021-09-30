@@ -25,11 +25,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let creator = deps.api.canonical_address(&msg.creator)?;
     set_creator(&mut deps.storage, &creator)?;
 
-    let deadline = msg.deadline as u64;
-    if env.block.time > deadline {
+    if env.block.time > msg.deadline {
         return Err(StdError::generic_err("Cannot create project with deadline in the past"));
     }
-    set_deadline(&mut deps.storage, deadline)?;
+    set_deadline(&mut deps.storage, msg.deadline)?;
     set_title(&mut deps.storage, msg.title)?;
     set_description(&mut deps.storage, msg.description)?;
     let pledged_message = msg.pledged_message.unwrap_or_else(|| String::from(""));
@@ -519,7 +518,7 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
     let total = Uint128(total);
 
     let deadline = get_deadline(&deps.storage)?;
-    let deadline = deadline as i32;
+    let deadline = deadline;
 
     let title = get_title(&deps.storage);
     let description = get_description(&deps.storage);
@@ -554,7 +553,6 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
     let total = Uint128(total);
 
     let deadline = get_deadline(&deps.storage)?;
-    let deadline = deadline as i32;
 
     let title = get_title(&deps.storage);
     let description = get_description(&deps.storage);
@@ -572,7 +570,7 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
                 if status != EXPIRED {
                     pledged_message = Some(get_pledged_message(&deps.storage));
                 }
-                if status == SUCCESSFUL {
+                if status == SUCCESSFUL && is_paid_out(&deps.storage) {
                     funded_message = Some(get_funded_message(&deps.storage));
                 }
             }
