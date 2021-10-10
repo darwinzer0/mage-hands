@@ -16,6 +16,7 @@ pub struct InitMsg {
     pub funded_message: Option<String>,
     pub goal: Uint128,
     pub deadline: u64,
+    pub categories: Vec<u16>,
 
     // commission
     pub commission_addr: HumanAddr,
@@ -49,6 +50,7 @@ pub enum HandleMsg {
         description: Option<String>,
         pledged_message: Option<String>,
         funded_message: Option<String>,
+        categories: Option<Vec<u16>>,
         padding: Option<String>,
     },
     // project funder: contribute funds to this project
@@ -146,6 +148,7 @@ pub enum QueryAnswer {
         deadline: u64,
         title: String,
         description: String,
+        categories: Vec<u16>,
     },
     StatusAuth {
         creator: HumanAddr,
@@ -156,6 +159,7 @@ pub enum QueryAnswer {
         deadline: u64,
         title: String,
         description: String,
+        categories: Vec<u16>,
         pledged_message: Option<String>,
         funded_message: Option<String>,
         contribution: Option<Uint128>,

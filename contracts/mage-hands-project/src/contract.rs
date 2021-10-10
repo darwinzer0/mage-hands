@@ -4,7 +4,7 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{PlatformHandleMsg, HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
-use crate::state::{paid_out, is_paid_out, FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
+use crate::state::{get_categories, set_categories, paid_out, is_paid_out, FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
 use primitive_types::U256;
 use crate::u256_math::{div, mul, sub};
 use crate::viewing_key::{VIEWING_KEY_SIZE, ViewingKey,};
@@ -42,6 +42,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     }
     set_goal(&mut deps.storage, goal)?;
 
+    set_categories(&mut deps.storage, msg.categories)?;
+
     let stored_fee = msg.fee.into_stored()?;
     set_fee(&mut deps.storage, stored_fee)?;
     set_upfront(&mut deps.storage, msg.upfront.u128())?;
@@ -74,7 +76,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::ChangeText { title, description, pledged_message, funded_message, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message,),
+        HandleMsg::ChangeText { title, description, pledged_message, funded_message, categories, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message, categories,),
         HandleMsg::Cancel { .. } => try_cancel(deps, env),
         HandleMsg::Contribute { anonymous, entropy, .. } => try_contribute(deps, env, anonymous, entropy),
         HandleMsg::Refund { .. } => try_refund(deps, env),
@@ -110,6 +112,7 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
     description: Option<String>,
     pledged_message: Option<String>,
     funded_message: Option<String>,
+    categories: Option<Vec<u16>>,
 ) -> StdResult<HandleResponse> {
     let status;
     let msg;
@@ -153,6 +156,11 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
         if funded_message.is_some() {
             set_funded_message(&mut deps.storage, funded_message.unwrap())?;
             updates.push(String::from("funded message"));
+        }
+
+        if categories.is_some() {
+            set_categories(&mut deps.storage, categories.unwrap())?;
+            updates.push(String::from("categories"));
         }
 
         if updates.len() > 0 {
@@ -523,7 +531,9 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
     let title = get_title(&deps.storage);
     let description = get_description(&deps.storage);
 
-    to_binary(&QueryAnswer::Status { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, })
+    let categories = get_categories(&deps.storage)?;
+
+    to_binary(&QueryAnswer::Status { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, categories,})
 }
 
 fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, address: &HumanAddr) -> QueryResult {
@@ -557,6 +567,8 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
     let title = get_title(&deps.storage);
     let description = get_description(&deps.storage);
 
+    let categories = get_categories(&deps.storage)?;
+
     let sender_address_raw = deps.api.canonical_address(&address)?;
     let stored_funder = get_funder(&deps.storage, &sender_address_raw);
 
@@ -579,5 +591,5 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
         Err(_) => {}
     };
 
-    to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, pledged_message, funded_message, contribution})
+    to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, categories, pledged_message, funded_message, contribution})
 }

@@ -26,6 +26,7 @@ pub struct ProjectInitMsg {
     pub funded_message: Option<String>,
     pub goal: Uint128,
     pub deadline: u64,
+    pub categories: Vec<u16>,
 
     // commission
     pub commission_addr: HumanAddr,
@@ -55,6 +56,7 @@ pub enum HandleMsg {
         funded_message: Option<String>,
         goal: Uint128,
         deadline: u64,
+        categories: Vec<u16>,
         entropy: String, // used to set up prng in project contract
         padding: Option<String>,
     },

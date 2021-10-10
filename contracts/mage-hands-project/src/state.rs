@@ -19,6 +19,7 @@ pub static PLEDGED_MESSAGE_KEY: &[u8] = b"plms";
 pub static FUNDED_MESSAGE_KEY: &[u8] = b"fnms";
 pub static GOAL_KEY: &[u8] = b"goal";
 pub static DEADLINE_KEY: &[u8] = b"dead";
+pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static TOTAL_KEY: &[u8] = b"totl";
 pub static FEE_KEY: &[u8] = b"feek";
 pub static UPFRONT_KEY: &[u8] = b"upfr";
@@ -121,6 +122,14 @@ pub fn set_deadline<S: Storage>(storage: &mut S, deadline: u64) -> StdResult<()>
 
 pub fn get_deadline<S: ReadonlyStorage>(storage: &S) -> StdResult<u64> {
     get_bin_data(storage, DEADLINE_KEY)
+}
+
+pub fn set_categories<S: Storage>(storage: &mut S, categories: Vec<u16>) -> StdResult<()> {
+    set_bin_data(storage, CATEGORIES_KEY, &categories)
+}
+
+pub fn get_categories<S: ReadonlyStorage>(storage: &S) -> StdResult<Vec<u16>> {
+    get_bin_data(storage, CATEGORIES_KEY)
 }
 
 pub fn set_total<S: Storage>(storage: &mut S, total: u128) -> StdResult<()> {

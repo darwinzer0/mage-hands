@@ -46,8 +46,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             pledged_message, 
             funded_message, 
             goal, 
-            deadline, 
-            entropy, .. } => try_create(deps, env, title, description, pledged_message, funded_message, goal, deadline, entropy),
+            deadline,
+            categories, 
+            entropy, .. } => try_create(deps, env, title, description, pledged_message, funded_message, goal, deadline, categories, entropy),
         HandleMsg::Config { owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash, .. } => try_config(deps, env, owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash),
         HandleMsg::Register { contract_addr } => try_register(deps, env, contract_addr ),
     }
@@ -62,6 +63,7 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
     funded_message: Option<String>,
     goal: Uint128,
     deadline: u64,
+    categories: Vec<u16>,
     entropy: String,
 ) -> StdResult<HandleResponse> {
     let status;
@@ -89,6 +91,7 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
             funded_message,
             goal,
             deadline,
+            categories,
             commission_addr: deps.api.human_address(&config.owner)?,
             upfront: Uint128(config.default_upfront),
             fee: config.default_fee.into_humanized()?,
