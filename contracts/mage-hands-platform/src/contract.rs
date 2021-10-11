@@ -75,9 +75,23 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
 
     if sent_coins[0].denom != DENOM {
         // sent wrong kind of coins
+        // send them back
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: env.message.sender,
+            amount: env.message.sent_funds,
+        }));
+
         status = Failure;
         msg = String::from("Wrong denomination");
     } else if sent_coins[0].amount.u128() != config.default_upfront {
+        // incorrect amount sent
+        // send them back
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            from_address: env.contract.address.clone(),
+            to_address: env.message.sender,
+            amount: env.message.sent_funds,
+        }));
         status = Failure;
         msg = format!("Upfront fee not correct, should be {} uscrt", config.default_upfront);
     } else {
@@ -232,7 +246,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Projects { page, page_size } => to_binary(&query_projects(deps, page, page_size)?),
+        QueryMsg::Projects { page, page_size } => query_projects(deps, page, page_size),
     }
 }
 
