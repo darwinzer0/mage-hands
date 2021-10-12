@@ -100,6 +100,20 @@ pub fn get_projects<S: ReadonlyStorage>(
     projects
 }
 
+pub fn get_projects_count<S: ReadonlyStorage>(
+    storage: &S,
+) -> StdResult<u32> {
+    let store = ReadonlyPrefixedStorage::new(&PROJECTS_PREFIX, storage);
+
+    // Try to access the storage of contract addresses and return length.
+    // If it doesn't exist yet, return 0.
+    let store = if let Some(result) = AppendStore::<CanonicalAddr, _>::attach(&store) {
+        return Ok(result?.len());
+    } else {
+        return Ok(0_u32);
+    };
+}
+
 //
 // Fee
 //

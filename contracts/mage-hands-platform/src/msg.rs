@@ -116,5 +116,6 @@ pub enum QueryMsg {
 pub enum QueryAnswer {
     Projects {
         projects: Vec<HumanAddr>,
+        count: u32,
     },
 }

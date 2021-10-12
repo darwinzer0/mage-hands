@@ -3,7 +3,7 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, Uint128, HumanAddr, CosmosMsg, BankMsg, Coin, QueryResult,
 };
 use crate::msg::{QueryAnswer, HandleAnswer, ProjectInitMsg, HandleMsg, InitMsg, QueryMsg, ResponseStatus::Failure, ResponseStatus::Success,};
-use crate::state::{project_count, get_projects, add_project, set_config, get_config, Config, Fee, set_creating_project, is_creating_project};
+use crate::state::{project_count, get_projects_count, get_projects, add_project, set_config, get_config, Config, Fee, set_creating_project, is_creating_project};
 use secret_toolkit::utils::{InitCallback};
 
 const DENOM: &str = "uscrt";
@@ -255,6 +255,7 @@ fn query_projects<S: Storage, A: Api, Q: Querier>(
     page: u32,
     page_size: u32,
 ) -> QueryResult {
+    let mut count = 0_u32;
     if page_size < 1 {
         return Err(StdError::generic_err("Invalid page_size"));
     }
@@ -266,7 +267,8 @@ fn query_projects<S: Storage, A: Api, Q: Querier>(
             .iter()
             .map(|project| deps.api.human_address(project).unwrap())
             .collect();
+        count = get_projects_count(&deps.storage)?;
     }
-    to_binary(&QueryAnswer::Projects { projects })
+    to_binary(&QueryAnswer::Projects { projects, count })
 }
 
