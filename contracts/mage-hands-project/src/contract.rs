@@ -392,7 +392,7 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
             })?;
 
             let commission_amount_u128 = commission_amount.low_u128();
-            if commission_amount_u128 < upfront || commission_amount_u128 == 0 { // take no commission
+            if upfront > commission_amount_u128 || commission_amount_u128 == 0 { // take no commission
                 messages.push(CosmosMsg::Bank(BankMsg::Send {
                     from_address: env.contract.address.clone(),
                     to_address: env.message.sender,
@@ -405,7 +405,7 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
             } else { // subtract upfront fee from commission
                 let commission_amount = sub(Some(commission_amount), upfront_u256).ok_or_else(|| {
                     StdError::generic_err(format!(
-                        "Cannot calculate commission_amouut {} - upfront {}",
+                        "Cannot calculate commission_amount {} - upfront {}",
                         commission_amount,
                         upfront_u256.unwrap(),
                     ))
