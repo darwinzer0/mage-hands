@@ -392,7 +392,7 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
             })?;
 
             let commission_amount_u128 = commission_amount.low_u128();
-            if upfront > commission_amount_u128 || commission_amount_u128 == 0 { // take no commission
+            if upfront >= commission_amount_u128 || commission_amount_u128 == 0 { // take no commission
                 messages.push(CosmosMsg::Bank(BankMsg::Send {
                     from_address: env.contract.address.clone(),
                     to_address: env.message.sender,
