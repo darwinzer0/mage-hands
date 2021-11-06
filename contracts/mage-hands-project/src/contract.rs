@@ -1,18 +1,29 @@
 use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, HumanAddr, log,
+    log, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse, HumanAddr,
+    InitResponse, Querier, QueryResult, StdError, StdResult, Storage, Uint128,
 };
 
-use crate::msg::{PlatformHandleMsg, HandleMsg, HandleAnswer, InitMsg, QueryMsg, QueryAnswer, ResponseStatus, ResponseStatus::Failure, ResponseStatus::Success};
-use crate::state::{get_categories, set_categories, paid_out, is_paid_out, FUNDRAISING, EXPIRED, SUCCESSFUL, write_viewing_key, get_prng_seed, set_prng_seed, get_pledged_message, get_funded_message, get_funder, read_viewing_key, add_funds, get_title, get_description, get_deadline, get_goal, get_fee, set_fee, get_commission_addr, get_upfront, set_commission_addr, set_upfront, clear_funds, get_total, get_creator, get_status, set_creator, set_deadline, set_description, set_funded_message, set_goal, set_pledged_message, set_status, set_total, set_title,};
-use primitive_types::U256;
+use crate::msg::{
+    HandleAnswer, HandleMsg, InitMsg, PlatformHandleMsg, QueryAnswer, QueryMsg, ResponseStatus,
+    ResponseStatus::Failure, ResponseStatus::Success,
+};
+use crate::state::{
+    add_funds, clear_funds, get_categories, get_commission_addr, get_creator, get_deadline,
+    get_description, get_fee, get_funded_message, get_funder, get_goal, get_pledged_message,
+    get_prng_seed, get_status, get_title, get_total, get_upfront, is_paid_out, paid_out,
+    read_viewing_key, set_categories, set_commission_addr, set_creator, set_deadline,
+    set_description, set_fee, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
+    set_status, set_title, set_total, set_upfront, write_viewing_key, EXPIRED, FUNDRAISING,
+    SUCCESSFUL,
+};
 use crate::u256_math::{div, mul, sub};
-use crate::viewing_key::{VIEWING_KEY_SIZE, ViewingKey,};
 use crate::utils::space_pad;
-use secret_toolkit::crypto::sha_256;
-use secret_toolkit::utils::HandleCallback;
-use secret_toolkit::permit::{pubkey_to_account, SignedPermit, Permit};
+use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
+use primitive_types::U256;
 use secp256k1::Secp256k1;
+use secret_toolkit::crypto::sha_256;
+use secret_toolkit::permit::{pubkey_to_account, Permit, SignedPermit};
+use secret_toolkit::utils::HandleCallback;
 
 const DENOM: &str = "uscrt";
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
@@ -23,7 +34,6 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-
     let prng_seed = sha_256(base64::encode(msg.entropy).as_bytes()).to_vec();
     set_prng_seed(&mut deps.storage, &prng_seed)?;
 
@@ -31,7 +41,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     set_creator(&mut deps.storage, &creator)?;
 
     if env.block.time > msg.deadline {
-        return Err(StdError::generic_err("Cannot create project with deadline in the past"));
+        return Err(StdError::generic_err(
+            "Cannot create project with deadline in the past",
+        ));
     }
     set_deadline(&mut deps.storage, msg.deadline)?;
     set_title(&mut deps.storage, msg.title)?;
@@ -40,7 +52,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     set_pledged_message(&mut deps.storage, pledged_message)?;
     let funded_message = msg.funded_message.unwrap_or_else(|| String::from(""));
     set_funded_message(&mut deps.storage, funded_message)?;
-    
+
     let goal = msg.goal.u128();
     if goal == 0 {
         return Err(StdError::generic_err("Goal must be greater than 0"));
@@ -52,7 +64,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let stored_fee = msg.fee.into_stored()?;
     set_fee(&mut deps.storage, stored_fee)?;
     set_upfront(&mut deps.storage, msg.upfront.u128())?;
-    set_commission_addr(&mut deps.storage, &deps.api.canonical_address(&msg.commission_addr)?)?;
+    set_commission_addr(
+        &mut deps.storage,
+        &deps.api.canonical_address(&msg.commission_addr)?,
+    )?;
 
     set_status(&mut deps.storage, FUNDRAISING)?;
     set_total(&mut deps.storage, 0_u128)?;
@@ -63,12 +78,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         contract_addr: env.contract.address,
         contract_code_hash: env.contract_code_hash,
     };
-    
-    let cosmos_msg = register_msg.to_cosmos_msg(
-        msg.source_hash,
-        msg.source_contract,
-        None,
-    )?;
+
+    let cosmos_msg = register_msg.to_cosmos_msg(msg.source_hash, msg.source_contract, None)?;
 
     Ok(InitResponse {
         messages: vec![cosmos_msg],
@@ -82,12 +93,31 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     let response = match msg {
-        HandleMsg::ChangeText { title, description, pledged_message, funded_message, categories, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message, categories,),
+        HandleMsg::ChangeText {
+            title,
+            description,
+            pledged_message,
+            funded_message,
+            categories,
+            ..
+        } => try_change_text(
+            deps,
+            env,
+            title,
+            description,
+            pledged_message,
+            funded_message,
+            categories,
+        ),
         HandleMsg::Cancel { .. } => try_cancel(deps, env),
-        HandleMsg::Contribute { anonymous, entropy, .. } => try_contribute(deps, env, anonymous, entropy),
+        HandleMsg::Contribute {
+            anonymous, entropy, ..
+        } => try_contribute(deps, env, anonymous, entropy),
         HandleMsg::Refund { .. } => try_refund(deps, env),
         HandleMsg::PayOut { .. } => try_pay_out(deps, env),
-        HandleMsg::GenerateViewingKey { entropy, .. } => try_generate_viewing_key(deps, env, entropy),
+        HandleMsg::GenerateViewingKey { entropy, .. } => {
+            try_generate_viewing_key(deps, env, entropy)
+        }
     };
     pad_response(response)
 }
@@ -152,7 +182,6 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
         status = Failure;
         msg = String::from("Cannot change a project that has been completed");
     } else {
-
         let mut updates: Vec<String> = vec![];
 
         if title.is_some() {
@@ -242,9 +271,10 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
             }
 
             let vk = read_viewing_key(&deps.storage, &sender_address_raw);
-        
+
             if vk.is_none() {
-                let key = ViewingKey::new(&env, &get_prng_seed(&deps.storage)?, (&entropy).as_ref());
+                let key =
+                    ViewingKey::new(&env, &get_prng_seed(&deps.storage)?, (&entropy).as_ref());
                 let message_sender = deps.api.canonical_address(&env.message.sender)?;
                 write_viewing_key(&mut deps.storage, &message_sender, &key);
 
@@ -257,7 +287,8 @@ fn try_contribute<S: Storage, A: Api, Q: Querier>(
     }
 
     let mut messages = vec![];
-    if status == Failure { // return coins to sender
+    if status == Failure {
+        // return coins to sender
         messages.push(CosmosMsg::Bank(BankMsg::Send {
             from_address: env.contract.address.clone(),
             to_address: env.message.sender,
@@ -304,7 +335,10 @@ fn try_cancel<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Cancel { status: response_status, msg })?),
+        data: Some(to_binary(&HandleAnswer::Cancel {
+            status: response_status,
+            msg,
+        })?),
     })
 }
 
@@ -377,7 +411,7 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
     if env.block.time > deadline && status == SUCCESSFUL {
         let total = get_total(&deps.storage)?;
         let fee = get_fee(&deps.storage)?;
-        
+
         if fee.commission_rate_nom == 0 {
             messages.push(CosmosMsg::Bank(BankMsg::Send {
                 from_address: env.contract.address.clone(),
@@ -391,25 +425,27 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
         } else {
             let total_u256 = Some(U256::from(total));
             let commission_rate_nom = Some(U256::from(fee.commission_rate_nom));
-            let commission_rate_denom =
-                Some(U256::from(fee.commission_rate_denom));
+            let commission_rate_denom = Some(U256::from(fee.commission_rate_denom));
             let commission_addr = get_commission_addr(&deps.storage)?;
             let commission_addr_human = deps.api.human_address(&commission_addr)?;
             let upfront = get_upfront(&deps.storage)?;
             let upfront_u256 = Some(U256::from(upfront));
 
-            let commission_amount = div(mul(total_u256, commission_rate_nom), commission_rate_denom)
-            .ok_or_else(|| {
-                StdError::generic_err(format!(
+            let commission_amount =
+                div(mul(total_u256, commission_rate_nom), commission_rate_denom).ok_or_else(
+                    || {
+                        StdError::generic_err(format!(
                     "Cannot calculate total {} * commission_rate_nom {} / commission_rate_denom {}",
                     total_u256.unwrap(),
                     commission_rate_nom.unwrap(),
                     commission_rate_denom.unwrap(),
                 ))
-            })?;
+                    },
+                )?;
 
             let commission_amount_u128 = commission_amount.low_u128();
-            if upfront >= commission_amount_u128 || commission_amount_u128 == 0 { // take no commission
+            if upfront >= commission_amount_u128 || commission_amount_u128 == 0 {
+                // take no commission
                 messages.push(CosmosMsg::Bank(BankMsg::Send {
                     from_address: env.contract.address.clone(),
                     to_address: env.message.sender,
@@ -419,14 +455,16 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
                     }],
                 }));
                 msg = format!("Pay out {} uscrt", total);
-            } else { // subtract upfront fee from commission
-                let commission_amount = sub(Some(commission_amount), upfront_u256).ok_or_else(|| {
-                    StdError::generic_err(format!(
-                        "Cannot calculate commission_amount {} - upfront {}",
-                        commission_amount,
-                        upfront_u256.unwrap(),
-                    ))
-                })?;
+            } else {
+                // subtract upfront fee from commission
+                let commission_amount =
+                    sub(Some(commission_amount), upfront_u256).ok_or_else(|| {
+                        StdError::generic_err(format!(
+                            "Cannot calculate commission_amount {} - upfront {}",
+                            commission_amount,
+                            upfront_u256.unwrap(),
+                        ))
+                    })?;
 
                 let payment_amount = sub(total_u256, Some(commission_amount)).ok_or_else(|| {
                     StdError::generic_err(format!(
@@ -455,7 +493,12 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
                     }],
                 }));
 
-                msg = format!("Pay out {} uscrt: payment {}, fee {}", total, payment_amount, commission_amount.low_u128());
+                msg = format!(
+                    "Pay out {} uscrt: payment {}, fee {}",
+                    total,
+                    payment_amount,
+                    commission_amount.low_u128()
+                );
             }
         }
 
@@ -466,7 +509,9 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
             set_status(&mut deps.storage, EXPIRED)?;
         }
         response_status = Failure;
-        msg = String::from("Cannot receive pay out unless project successfully funded and deadline past");
+        msg = String::from(
+            "Cannot receive pay out unless project successfully funded and deadline past",
+        );
     }
 
     //debug_print("refund processed");
@@ -551,12 +596,22 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
 
     let categories = get_categories(&deps.storage)?;
 
-    to_binary(&QueryAnswer::Status { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, categories,})
+    to_binary(&QueryAnswer::Status {
+        creator,
+        status: status_string,
+        paid_out: po,
+        goal,
+        total,
+        deadline,
+        title,
+        description,
+        categories,
+    })
 }
 
 fn query_status_auth<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>, 
-    address: &HumanAddr
+    deps: &Extern<S, A, Q>,
+    address: &HumanAddr,
 ) -> QueryResult {
     let status_string;
 
@@ -608,15 +663,28 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(
                 }
             }
             contribution = Some(Uint128(stored_funder.amount));
-        },
+        }
         Err(_) => {}
     };
 
-    to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, categories, pledged_message, funded_message, contribution})
+    to_binary(&QueryAnswer::StatusAuth {
+        creator,
+        status: status_string,
+        paid_out: po,
+        goal,
+        total,
+        deadline,
+        title,
+        description,
+        categories,
+        pledged_message,
+        funded_message,
+        contribution,
+    })
 }
 
 fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>, 
+    deps: &Extern<S, A, Q>,
     permit: &Permit,
 ) -> QueryResult {
     // Derive account from pubkey
@@ -654,11 +722,11 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
                 err
             ))
         })?;
-    
+
     let status_string;
 
     let status = get_status(&deps.storage)?;
-    
+
     if status == FUNDRAISING {
         status_string = String::from("fundraising");
     } else if status == EXPIRED {
@@ -668,23 +736,23 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
     } else {
         return Err(StdError::generic_err("Error getting status"));
     }
-    
+
     let creator = get_creator(&deps.storage)?;
     let creator = deps.api.human_address(&creator)?;
-    
+
     let po = is_paid_out(&deps.storage);
-    
+
     let goal = get_goal(&deps.storage)?;
     let goal = Uint128(goal);
-    
+
     let total = get_total(&deps.storage)?;
     let total = Uint128(total);
-    
+
     let deadline = get_deadline(&deps.storage)?;
-    
+
     let title = get_title(&deps.storage);
     let description = get_description(&deps.storage);
-    
+
     let categories = get_categories(&deps.storage)?;
 
     let sender_address_raw = deps.api.canonical_address(&account)?;
@@ -706,22 +774,22 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
                 }
             }
             contribution = Some(Uint128(stored_funder.amount));
-        },
+        }
         Err(_) => {}
     };
 
-    to_binary(&QueryAnswer::StatusWithPermit { 
-        creator, 
-        status: status_string, 
-        paid_out: po, 
-        goal, 
-        total, 
-        deadline, 
-        title, 
-        description, 
-        categories, 
-        pledged_message, 
-        funded_message, 
-        contribution
+    to_binary(&QueryAnswer::StatusWithPermit {
+        creator,
+        status: status_string,
+        paid_out: po,
+        goal,
+        total,
+        deadline,
+        title,
+        description,
+        categories,
+        pledged_message,
+        funded_message,
+        contribution,
     })
 }

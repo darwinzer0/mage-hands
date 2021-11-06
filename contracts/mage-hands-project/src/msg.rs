@@ -1,10 +1,10 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use cosmwasm_std::{HumanAddr, Uint128};
 use crate::state::Fee;
 use crate::viewing_key::ViewingKey;
-use secret_toolkit::utils::{HandleCallback};
+use cosmwasm_std::{HumanAddr, Uint128};
+use schemars::JsonSchema;
 use secret_toolkit::permit::Permit;
+use secret_toolkit::utils::HandleCallback;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -35,8 +35,8 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PlatformHandleMsg {
-    Register { 
-        contract_addr: HumanAddr, 
+    Register {
+        contract_addr: HumanAddr,
         contract_code_hash: String,
     },
 }
@@ -123,21 +123,14 @@ pub enum HandleAnswer {
 pub enum QueryMsg {
     // GetStatus returns the current status: Fundraising, Expired, or Successful
     Status {},
-    StatusAuth {
-        address: HumanAddr,
-        key: String,
-    },
-    StatusWithPermit {
-        permit: Permit,
-    },
+    StatusAuth { address: HumanAddr, key: String },
+    StatusWithPermit { permit: Permit },
 }
 
 impl QueryMsg {
     pub fn get_validation_params(&self) -> (Vec<&HumanAddr>, ViewingKey) {
         match self {
-            Self::StatusAuth { address, key, .. } => {
-                (vec![address], ViewingKey(key.clone()))
-            }
+            Self::StatusAuth { address, key, .. } => (vec![address], ViewingKey(key.clone())),
             _ => panic!("This query type does not require authentication"),
         }
     }

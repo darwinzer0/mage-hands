@@ -1,11 +1,11 @@
+use crate::viewing_key::ViewingKey;
+use cosmwasm_std::{CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
+use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use schemars::JsonSchema;
+use secret_toolkit::storage::{AppendStore, AppendStoreMut};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
-use cosmwasm_std::{Uint128, CanonicalAddr, Storage, StdResult, StdError, ReadonlyStorage};
-use cosmwasm_storage::{ PrefixedStorage, ReadonlyPrefixedStorage};
-use secret_toolkit::storage::{AppendStore, AppendStoreMut};
-use crate::viewing_key::ViewingKey;
 
 pub const FUNDRAISING: u8 = 1_u8;
 pub const EXPIRED: u8 = 2_u8;
@@ -81,11 +81,17 @@ pub fn get_description<S: ReadonlyStorage>(storage: &S) -> String {
         Ok(description) => description,
         Err(_) => vec![],
     };
-    String::from_utf8(stored_description).ok().unwrap_or_default()
+    String::from_utf8(stored_description)
+        .ok()
+        .unwrap_or_default()
 }
 
 pub fn set_pledged_message<S: Storage>(storage: &mut S, pledged_message: String) -> StdResult<()> {
-    set_bin_data(storage, PLEDGED_MESSAGE_KEY, &pledged_message.as_bytes().to_vec())
+    set_bin_data(
+        storage,
+        PLEDGED_MESSAGE_KEY,
+        &pledged_message.as_bytes().to_vec(),
+    )
 }
 
 pub fn get_pledged_message<S: ReadonlyStorage>(storage: &S) -> String {
@@ -93,11 +99,17 @@ pub fn get_pledged_message<S: ReadonlyStorage>(storage: &S) -> String {
         Ok(pledged_message) => pledged_message,
         Err(_) => vec![],
     };
-    String::from_utf8(stored_pledged_message).ok().unwrap_or_default()
+    String::from_utf8(stored_pledged_message)
+        .ok()
+        .unwrap_or_default()
 }
 
 pub fn set_funded_message<S: Storage>(storage: &mut S, funded_message: String) -> StdResult<()> {
-    set_bin_data(storage, FUNDED_MESSAGE_KEY, &funded_message.as_bytes().to_vec())
+    set_bin_data(
+        storage,
+        FUNDED_MESSAGE_KEY,
+        &funded_message.as_bytes().to_vec(),
+    )
 }
 
 pub fn get_funded_message<S: ReadonlyStorage>(storage: &S) -> String {
@@ -105,7 +117,9 @@ pub fn get_funded_message<S: ReadonlyStorage>(storage: &S) -> String {
         Ok(funded_message) => funded_message,
         Err(_) => vec![],
     };
-    String::from_utf8(stored_funded_message).ok().unwrap_or_default()
+    String::from_utf8(stored_funded_message)
+        .ok()
+        .unwrap_or_default()
 }
 
 pub fn set_goal<S: Storage>(storage: &mut S, goal: u128) -> StdResult<()> {
@@ -156,14 +170,16 @@ pub fn get_upfront<S: ReadonlyStorage>(storage: &S) -> StdResult<u128> {
     get_bin_data(storage, UPFRONT_KEY)
 }
 
-pub fn set_commission_addr<S: Storage>(storage: &mut S, commission_addr: &CanonicalAddr) -> StdResult<()> {
+pub fn set_commission_addr<S: Storage>(
+    storage: &mut S,
+    commission_addr: &CanonicalAddr,
+) -> StdResult<()> {
     set_bin_data(storage, COMMISSION_ADDR_KEY, &commission_addr)
 }
 
 pub fn get_commission_addr<S: ReadonlyStorage>(storage: &S) -> StdResult<CanonicalAddr> {
     get_bin_data(storage, COMMISSION_ADDR_KEY)
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StoredFunder {
@@ -174,20 +190,27 @@ pub struct StoredFunder {
 }
 
 pub fn set_funder<S: Storage>(
-    storage: &mut S, 
-    funder_addr: &CanonicalAddr, 
-    idx: u32, 
-    anonymous: bool, 
-    amount: u128
+    storage: &mut S,
+    funder_addr: &CanonicalAddr,
+    idx: u32,
+    anonymous: bool,
+    amount: u128,
 ) -> StdResult<()> {
-    set_bin_data(storage, funder_addr.as_slice(), &StoredFunder{
-        idx,
-        anonymous,
-        amount,
-    })
+    set_bin_data(
+        storage,
+        funder_addr.as_slice(),
+        &StoredFunder {
+            idx,
+            anonymous,
+            amount,
+        },
+    )
 }
 
-pub fn get_funder<S: ReadonlyStorage>(storage: &S, funder_addr: &CanonicalAddr) -> StdResult<StoredFunder> {
+pub fn get_funder<S: ReadonlyStorage>(
+    storage: &S,
+    funder_addr: &CanonicalAddr,
+) -> StdResult<StoredFunder> {
     get_bin_data(storage, funder_addr.as_slice())
 }
 
@@ -199,17 +222,23 @@ pub fn push_funder<S: Storage>(storage: &mut S, funder_addr: &CanonicalAddr) -> 
 }
 
 pub fn add_funds<S: Storage>(
-    storage: &mut S, 
-    funder_addr: &CanonicalAddr, 
-    anonymous: bool, 
-    amount: u128
+    storage: &mut S,
+    funder_addr: &CanonicalAddr,
+    anonymous: bool,
+    amount: u128,
 ) -> StdResult<()> {
     // check if has previously put funds in
     let stored_funder = get_funder(storage, funder_addr);
     match stored_funder {
         Ok(stored_funder) => {
-            set_funder(storage, funder_addr, stored_funder.idx, anonymous, stored_funder.amount + amount)?;
-        },
+            set_funder(
+                storage,
+                funder_addr,
+                stored_funder.idx,
+                anonymous,
+                stored_funder.amount + amount,
+            )?;
+        }
         Err(_) => {
             let idx = push_funder(storage, funder_addr)?;
             set_funder(storage, funder_addr, idx, anonymous, amount)?;
@@ -241,8 +270,7 @@ pub fn get_funders<S: ReadonlyStorage>(
     page: u32,
     page_size: u32,
 ) -> StdResult<Vec<Funder>> {
-    let store =
-        ReadonlyPrefixedStorage::new(&FUNDER_LIST_PREFIX, storage);
+    let store = ReadonlyPrefixedStorage::new(&FUNDER_LIST_PREFIX, storage);
 
     let store = if let Some(result) = AppendStore::<CanonicalAddr, _>::attach(&store) {
         result?
@@ -255,30 +283,30 @@ pub fn get_funders<S: ReadonlyStorage>(
         .skip((page * page_size) as _)
         .take(page_size as _);
     let funders: StdResult<Vec<Funder>> = funder_iter
-        .map(|funder| funder.map(|funder| {
-            let stored_funder = get_funder(storage, &funder);
-            match stored_funder {
-                Ok(stored_funder) => {
-                    if stored_funder.anonymous {
-                        Funder {
-                            address: None,
-                            amount: stored_funder.amount,
-                        }
-                    } else {
-                        Funder {
-                            address: Some(funder),
-                            amount: stored_funder.amount,
+        .map(|funder| {
+            funder.map(|funder| {
+                let stored_funder = get_funder(storage, &funder);
+                match stored_funder {
+                    Ok(stored_funder) => {
+                        if stored_funder.anonymous {
+                            Funder {
+                                address: None,
+                                amount: stored_funder.amount,
+                            }
+                        } else {
+                            Funder {
+                                address: Some(funder),
+                                amount: stored_funder.amount,
+                            }
                         }
                     }
-                },
-                Err(_) => {
-                    Funder {
+                    Err(_) => Funder {
                         address: None,
                         amount: 0_u128,
-                    }
+                    },
                 }
-            }
-        }))
+            })
+        })
         .collect();
     funders
 }
