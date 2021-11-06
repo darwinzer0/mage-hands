@@ -4,6 +4,7 @@ use cosmwasm_std::{HumanAddr, Uint128};
 use crate::state::Fee;
 use crate::viewing_key::ViewingKey;
 use secret_toolkit::utils::{HandleCallback};
+use secret_toolkit::permit::Permit;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -34,7 +35,10 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PlatformHandleMsg {
-    Register { contract_addr: HumanAddr, },
+    Register { 
+        contract_addr: HumanAddr, 
+        contract_code_hash: String,
+    },
 }
 
 impl HandleCallback for PlatformHandleMsg {
@@ -123,6 +127,9 @@ pub enum QueryMsg {
         address: HumanAddr,
         key: String,
     },
+    StatusWithPermit {
+        permit: Permit,
+    },
 }
 
 impl QueryMsg {
@@ -151,6 +158,20 @@ pub enum QueryAnswer {
         categories: Vec<u16>,
     },
     StatusAuth {
+        creator: HumanAddr,
+        status: String,
+        paid_out: bool,
+        goal: Uint128,
+        total: Uint128,
+        deadline: u64,
+        title: String,
+        description: String,
+        categories: Vec<u16>,
+        pledged_message: Option<String>,
+        funded_message: Option<String>,
+        contribution: Option<Uint128>,
+    },
+    StatusWithPermit {
         creator: HumanAddr,
         status: String,
         paid_out: bool,

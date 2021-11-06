@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    debug_print, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
+    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
     StdError, StdResult, Storage, QueryResult, Coin, CosmosMsg, Uint128, BankMsg, HumanAddr, log,
 };
 
@@ -8,10 +8,15 @@ use crate::state::{get_categories, set_categories, paid_out, is_paid_out, FUNDRA
 use primitive_types::U256;
 use crate::u256_math::{div, mul, sub};
 use crate::viewing_key::{VIEWING_KEY_SIZE, ViewingKey,};
+use crate::utils::space_pad;
 use secret_toolkit::crypto::sha_256;
 use secret_toolkit::utils::HandleCallback;
+use secret_toolkit::permit::{pubkey_to_account, SignedPermit, Permit};
+use secp256k1::Secp256k1;
 
 const DENOM: &str = "uscrt";
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
+pub const RESPONSE_BLOCK_SIZE: usize = 256;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -52,10 +57,11 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     set_status(&mut deps.storage, FUNDRAISING)?;
     set_total(&mut deps.storage, 0_u128)?;
 
-    debug_print!("Contract was initialized by {}", env.message.sender);
+    //debug_print!("Contract was initialized by {}", env.message.sender);
 
     let register_msg = PlatformHandleMsg::Register {
         contract_addr: env.contract.address,
+        contract_code_hash: env.contract_code_hash,
     };
     
     let cosmos_msg = register_msg.to_cosmos_msg(
@@ -75,14 +81,25 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
-    match msg {
+    let response = match msg {
         HandleMsg::ChangeText { title, description, pledged_message, funded_message, categories, .. } => try_change_text(deps, env, title, description, pledged_message, funded_message, categories,),
         HandleMsg::Cancel { .. } => try_cancel(deps, env),
         HandleMsg::Contribute { anonymous, entropy, .. } => try_contribute(deps, env, anonymous, entropy),
         HandleMsg::Refund { .. } => try_refund(deps, env),
         HandleMsg::PayOut { .. } => try_pay_out(deps, env),
         HandleMsg::GenerateViewingKey { entropy, .. } => try_generate_viewing_key(deps, env, entropy),
-    }
+    };
+    pad_response(response)
+}
+
+fn pad_response(response: StdResult<HandleResponse>) -> StdResult<HandleResponse> {
+    response.map(|mut response| {
+        response.data = response.data.map(|mut data| {
+            space_pad(RESPONSE_BLOCK_SIZE, &mut data.0);
+            data
+        });
+        response
+    })
 }
 
 fn try_generate_viewing_key<S: Storage, A: Api, Q: Querier>(
@@ -172,7 +189,7 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
         }
     }
 
-    debug_print("text changed successfully");
+    //debug_print("text changed successfully");
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
@@ -283,7 +300,7 @@ fn try_cancel<S: Storage, A: Api, Q: Querier>(
         set_status(&mut deps.storage, EXPIRED)?;
     }
 
-    debug_print("project cancelled successfully");
+    //debug_print("project cancelled successfully");
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
@@ -324,7 +341,7 @@ pub fn try_refund<S: Storage, A: Api, Q: Querier>(
         }
     }
 
-    debug_print("refund processed successfully");
+    //debug_print("refund processed successfully");
     Ok(HandleResponse {
         messages,
         log: vec![],
@@ -452,7 +469,7 @@ fn try_pay_out<S: Storage, A: Api, Q: Querier>(
         msg = String::from("Cannot receive pay out unless project successfully funded and deadline past");
     }
 
-    debug_print("refund processed");
+    //debug_print("refund processed");
     Ok(HandleResponse {
         messages,
         log: vec![],
@@ -469,6 +486,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::Status {} => query_status(deps),
+        QueryMsg::StatusWithPermit { permit } => query_status_with_permit(deps, &permit),
         _ => authenticated_queries(deps, msg),
     }
 }
@@ -536,7 +554,10 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
     to_binary(&QueryAnswer::Status { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, categories,})
 }
 
-fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, address: &HumanAddr) -> QueryResult {
+fn query_status_auth<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>, 
+    address: &HumanAddr
+) -> QueryResult {
     let status_string;
 
     let status = get_status(&deps.storage)?;
@@ -592,4 +613,115 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, add
     };
 
     to_binary(&QueryAnswer::StatusAuth { creator, status: status_string, paid_out: po, goal, total, deadline, title, description, categories, pledged_message, funded_message, contribution})
+}
+
+fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>, 
+    permit: &Permit,
+) -> QueryResult {
+    // Derive account from pubkey
+    let pubkey = &permit.signature.pub_key.value;
+    let account = deps.api.human_address(&pubkey_to_account(pubkey))?;
+
+    // Validate permit_name
+    let permit_name = &permit.params.permit_name;
+    if permit_name != "Mage Hands" {
+        return Err(StdError::generic_err(format!("Incorrect permit_name")));
+    }
+
+    // Validate signature, reference: https://github.com/enigmampc/SecretNetwork/blob/f591ed0cb3af28608df3bf19d6cfb733cca48100/cosmwasm/packages/wasmi-runtime/src/crypto/secp256k1.rs#L49-L82
+    let signed_bytes = to_binary(&SignedPermit::from_params(&permit.params))?;
+    let signed_bytes_hash = sha_256(signed_bytes.as_slice());
+    let secp256k1_msg = secp256k1::Message::from_slice(&signed_bytes_hash).map_err(|err| {
+        StdError::generic_err(format!(
+            "Failed to create a secp256k1 message from signed_bytes: {:?}",
+            err
+        ))
+    })?;
+
+    let secp256k1_verifier = Secp256k1::verification_only();
+
+    let secp256k1_signature = secp256k1::Signature::from_compact(&permit.signature.signature.0)
+        .map_err(|err| StdError::generic_err(format!("Malformed signature: {:?}", err)))?;
+    let secp256k1_pubkey = secp256k1::PublicKey::from_slice(pubkey.0.as_slice())
+        .map_err(|err| StdError::generic_err(format!("Malformed pubkey: {:?}", err)))?;
+
+    secp256k1_verifier
+        .verify(&secp256k1_msg, &secp256k1_signature, &secp256k1_pubkey)
+        .map_err(|err| {
+            StdError::generic_err(format!(
+                "Failed to verify signatures for the given permit: {:?}",
+                err
+            ))
+        })?;
+    
+    let status_string;
+
+    let status = get_status(&deps.storage)?;
+    
+    if status == FUNDRAISING {
+        status_string = String::from("fundraising");
+    } else if status == EXPIRED {
+        status_string = String::from("expired");
+    } else if status == SUCCESSFUL {
+        status_string = String::from("successful");
+    } else {
+        return Err(StdError::generic_err("Error getting status"));
+    }
+    
+    let creator = get_creator(&deps.storage)?;
+    let creator = deps.api.human_address(&creator)?;
+    
+    let po = is_paid_out(&deps.storage);
+    
+    let goal = get_goal(&deps.storage)?;
+    let goal = Uint128(goal);
+    
+    let total = get_total(&deps.storage)?;
+    let total = Uint128(total);
+    
+    let deadline = get_deadline(&deps.storage)?;
+    
+    let title = get_title(&deps.storage);
+    let description = get_description(&deps.storage);
+    
+    let categories = get_categories(&deps.storage)?;
+
+    let sender_address_raw = deps.api.canonical_address(&account)?;
+
+    let stored_funder = get_funder(&deps.storage, &sender_address_raw);
+
+    let mut pledged_message: Option<String> = None;
+    let mut funded_message: Option<String> = None;
+    let mut contribution: Option<Uint128> = None;
+
+    match stored_funder {
+        Ok(stored_funder) => {
+            if stored_funder.amount > 0 {
+                if status != EXPIRED {
+                    pledged_message = Some(get_pledged_message(&deps.storage));
+                }
+                if status == SUCCESSFUL && is_paid_out(&deps.storage) {
+                    funded_message = Some(get_funded_message(&deps.storage));
+                }
+            }
+            contribution = Some(Uint128(stored_funder.amount));
+        },
+        Err(_) => {}
+    };
+
+    to_binary(&QueryAnswer::StatusWithPermit { 
+        creator, 
+        status: status_string, 
+        paid_out: po, 
+        goal, 
+        total, 
+        deadline, 
+        title, 
+        description, 
+        categories, 
+        pledged_message, 
+        funded_message, 
+        contribution
+    })
 }
