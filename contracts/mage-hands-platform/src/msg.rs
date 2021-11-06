@@ -72,6 +72,7 @@ pub enum HandleMsg {
     // register a project contract
     Register {
         contract_addr: HumanAddr,
+        contract_code_hash: String,
     },
 }
 
@@ -97,7 +98,8 @@ pub enum HandleAnswer {
         status: ResponseStatus,
         msg: String,
         project_id: u32,
-        project_addr: HumanAddr,
+        project_address: HumanAddr,
+        project_code_hash: String,
     },
 }
 
@@ -115,7 +117,16 @@ pub enum QueryMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     Projects {
-        projects: Vec<HumanAddr>,
+        projects: Vec<ContractInfo>,
         count: u32,
     },
+}
+
+/// code hash and address of a contract
+#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Debug)]
+pub struct ContractInfo {
+    /// contract's code hash string
+    pub code_hash: String,
+    /// contract's address
+    pub address: HumanAddr,
 }

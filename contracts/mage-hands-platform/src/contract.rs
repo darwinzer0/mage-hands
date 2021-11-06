@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    debug_print, to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
+    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
     StdError, StdResult, Storage, Uint128, HumanAddr, CosmosMsg, BankMsg, Coin, QueryResult,
 };
-use crate::msg::{QueryAnswer, HandleAnswer, ProjectInitMsg, HandleMsg, InitMsg, QueryMsg, ResponseStatus::Failure, ResponseStatus::Success,};
-use crate::state::{project_count, get_projects_count, get_projects, add_project, set_config, get_config, Config, Fee, set_creating_project, is_creating_project};
+use crate::msg::{ContractInfo, QueryAnswer, HandleAnswer, ProjectInitMsg, HandleMsg, InitMsg, QueryMsg, ResponseStatus::Failure, ResponseStatus::Success,};
+use crate::state::{StoredContractInfo, project_count, get_projects_count, get_projects, add_project, set_config, get_config, Config, Fee, set_creating_project, is_creating_project};
 use secret_toolkit::utils::{InitCallback};
 
 const DENOM: &str = "uscrt";
@@ -29,7 +29,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         msg.project_contract_code_hash.as_bytes().to_vec(),
     )?;
 
-    debug_print!("Contract was initialized by {}", env.message.sender);
+    //debug_print!("Contract was initialized by {}", env.message.sender);
 
     Ok(InitResponse::default())
 }
@@ -50,7 +50,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             categories, 
             entropy, .. } => try_create(deps, env, title, description, pledged_message, funded_message, goal, deadline, categories, entropy),
         HandleMsg::Config { owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash, .. } => try_config(deps, env, owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash),
-        HandleMsg::Register { contract_addr } => try_register(deps, env, contract_addr ),
+        HandleMsg::Register { contract_addr, contract_code_hash } => try_register(deps, env, contract_addr, contract_code_hash ),
     }
 }
 
@@ -144,7 +144,7 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
         msg = format!("Created project contract {}", label);
     }
 
-    debug_print("created new project successfully");
+    //debug_print("created new project successfully");
     Ok(HandleResponse {
         messages,
         log: vec![],
@@ -156,13 +156,18 @@ fn try_register<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
     contract_addr: HumanAddr,
+    contract_code_hash: String,
 ) -> StdResult<HandleResponse> {
     if !is_creating_project(&deps.storage) {
         return Err(StdError::Unauthorized { backtrace: None });
     }
 
     set_creating_project(&mut deps.storage, false)?;
-    let project_id = add_project(&mut deps.storage, deps.api.canonical_address(&contract_addr)?)?;
+    let contract_info = StoredContractInfo {
+        address: deps.api.canonical_address(&contract_addr)?,
+        code_hash: contract_code_hash.clone(),
+    };
+    let project_id = add_project(&mut deps.storage, contract_info)?;
 
     let status = Success;
     let msg = format!("Registered contract {}", contract_addr);
@@ -170,7 +175,13 @@ fn try_register<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Register {status, msg, project_id, project_addr: contract_addr})?),
+        data: Some(to_binary(&HandleAnswer::Register {
+            status, 
+            msg, 
+            project_id, 
+            project_address: contract_addr, 
+            project_code_hash: contract_code_hash
+        })?),
     })
 }
 
@@ -233,7 +244,7 @@ fn try_config<S: Storage, A: Api, Q: Querier>(
         String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
     );
 
-    debug_print("config set successfully");
+    //debug_print("config set successfully");
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
@@ -259,13 +270,13 @@ fn query_projects<S: Storage, A: Api, Q: Querier>(
     if page_size < 1 {
         return Err(StdError::generic_err("Invalid page_size"));
     }
-    let mut projects: Vec<HumanAddr> = vec![];
+    let mut projects: Vec<ContractInfo> = vec![];
     let projects_wrapped = get_projects(&deps.storage, page, page_size);
     if projects_wrapped.is_ok() {
         projects = projects_wrapped
             .unwrap()
             .iter()
-            .map(|project| deps.api.human_address(project).unwrap())
+            .map(|project| project.to_humanized(&deps.api).unwrap())
             .collect();
         count = get_projects_count(&deps.storage)?;
     }
