@@ -1,11 +1,13 @@
+use crate::msg::ContractInfo;
+use cosmwasm_std::{
+    Api, CanonicalAddr, HumanAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
+};
+use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use schemars::JsonSchema;
+use secret_toolkit::storage::{AppendStore, AppendStoreMut};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
-use cosmwasm_std::{Api, Uint128, CanonicalAddr, HumanAddr, Storage, StdResult, StdError, ReadonlyStorage};
-use cosmwasm_storage::{ PrefixedStorage, ReadonlyPrefixedStorage};
-use secret_toolkit::storage::{AppendStore, AppendStoreMut};
-use crate::msg::ContractInfo;
 
 pub static CONFIG_KEY: &[u8] = b"conf";
 pub static CREATING_PROJECT_FLAG_KEY: &[u8] = b"flag";
@@ -22,9 +24,9 @@ pub struct Config {
 }
 
 pub fn set_config<S: Storage>(
-    storage: &mut S, 
-    owner: CanonicalAddr, 
-    default_upfront: u128, 
+    storage: &mut S,
+    owner: CanonicalAddr,
+    default_upfront: u128,
     default_fee: StoredFee,
     project_contract_code_id: u64,
     project_contract_code_hash: Vec<u8>,
@@ -82,9 +84,7 @@ impl StoredContractInfo {
     }
 }
 
-pub fn project_count<S: ReadonlyStorage>(
-    storage: &S,
-) -> StdResult<u32> {
+pub fn project_count<S: ReadonlyStorage>(storage: &S) -> StdResult<u32> {
     let store = ReadonlyPrefixedStorage::new(&PROJECTS_PREFIX, storage);
 
     // Try to access the storage of contract addresses and get length
@@ -96,10 +96,7 @@ pub fn project_count<S: ReadonlyStorage>(
     };
 }
 
-pub fn add_project<S: Storage>(
-    storage: &mut S,
-    project: StoredContractInfo,
-) -> StdResult<u32> {
+pub fn add_project<S: Storage>(storage: &mut S, project: StoredContractInfo) -> StdResult<u32> {
     let mut store = PrefixedStorage::new(&PROJECTS_PREFIX, storage);
     let mut store = AppendStoreMut::<StoredContractInfo, _>::attach_or_create(&mut store)?;
     store.push(&project)?;
@@ -132,9 +129,7 @@ pub fn get_projects<S: ReadonlyStorage>(
     projects
 }
 
-pub fn get_projects_count<S: ReadonlyStorage>(
-    storage: &S,
-) -> StdResult<u32> {
+pub fn get_projects_count<S: ReadonlyStorage>(storage: &S) -> StdResult<u32> {
     let store = ReadonlyPrefixedStorage::new(&PROJECTS_PREFIX, storage);
 
     // Try to access the storage of contract addresses and return length.

@@ -1,7 +1,7 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use cosmwasm_std::{HumanAddr, Uint128};
-use secret_toolkit::utils::{InitCallback,};
+use schemars::JsonSchema;
+use secret_toolkit::utils::InitCallback;
+use serde::{Deserialize, Serialize};
 
 use crate::state::Fee;
 
@@ -107,10 +107,7 @@ pub enum HandleAnswer {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // gets a paginated list of projects
-    Projects {
-        page: u32,
-        page_size: u32,
-    },
+    Projects { page: u32, page_size: u32 },
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]

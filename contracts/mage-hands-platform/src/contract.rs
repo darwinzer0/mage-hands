@@ -1,10 +1,16 @@
-use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier,
-    StdError, StdResult, Storage, Uint128, HumanAddr, CosmosMsg, BankMsg, Coin, QueryResult,
+use crate::msg::{
+    ContractInfo, HandleAnswer, HandleMsg, InitMsg, ProjectInitMsg, QueryAnswer, QueryMsg,
+    ResponseStatus::Failure, ResponseStatus::Success,
 };
-use crate::msg::{ContractInfo, QueryAnswer, HandleAnswer, ProjectInitMsg, HandleMsg, InitMsg, QueryMsg, ResponseStatus::Failure, ResponseStatus::Success,};
-use crate::state::{StoredContractInfo, project_count, get_projects_count, get_projects, add_project, set_config, get_config, Config, Fee, set_creating_project, is_creating_project};
-use secret_toolkit::utils::{InitCallback};
+use crate::state::{
+    add_project, get_config, get_projects, get_projects_count, is_creating_project, project_count,
+    set_config, set_creating_project, Config, Fee, StoredContractInfo,
+};
+use cosmwasm_std::{
+    to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse, HumanAddr,
+    InitResponse, Querier, QueryResult, StdError, StdResult, Storage, Uint128,
+};
+use secret_toolkit::utils::InitCallback;
 
 const DENOM: &str = "uscrt";
 
@@ -21,9 +27,9 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     }
 
     set_config(
-        &mut deps.storage, 
-        owner, 
-        msg.default_upfront.u128(), 
+        &mut deps.storage,
+        owner,
+        msg.default_upfront.u128(),
         msg.default_fee.into_stored()?,
         msg.project_contract_code_id,
         msg.project_contract_code_hash.as_bytes().to_vec(),
@@ -40,24 +46,55 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::Create { 
-            title, 
-            description, 
-            pledged_message, 
-            funded_message, 
-            goal, 
+        HandleMsg::Create {
+            title,
+            description,
+            pledged_message,
+            funded_message,
+            goal,
             deadline,
-            categories, 
-            entropy, .. } => try_create(deps, env, title, description, pledged_message, funded_message, goal, deadline, categories, entropy),
-        HandleMsg::Config { owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash, .. } => try_config(deps, env, owner, default_upfront, default_fee, project_contract_code_id, project_contract_code_hash),
-        HandleMsg::Register { contract_addr, contract_code_hash } => try_register(deps, env, contract_addr, contract_code_hash ),
+            categories,
+            entropy,
+            ..
+        } => try_create(
+            deps,
+            env,
+            title,
+            description,
+            pledged_message,
+            funded_message,
+            goal,
+            deadline,
+            categories,
+            entropy,
+        ),
+        HandleMsg::Config {
+            owner,
+            default_upfront,
+            default_fee,
+            project_contract_code_id,
+            project_contract_code_hash,
+            ..
+        } => try_config(
+            deps,
+            env,
+            owner,
+            default_upfront,
+            default_fee,
+            project_contract_code_id,
+            project_contract_code_hash,
+        ),
+        HandleMsg::Register {
+            contract_addr,
+            contract_code_hash,
+        } => try_register(deps, env, contract_addr, contract_code_hash),
     }
 }
 
 pub fn try_create<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    title: String, 
+    title: String,
     description: String,
     pledged_message: Option<String>,
     funded_message: Option<String>,
@@ -93,7 +130,10 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
             amount: env.message.sent_funds,
         }));
         status = Failure;
-        msg = format!("Upfront fee not correct, should be {} uscrt", config.default_upfront);
+        msg = format!(
+            "Upfront fee not correct, should be {} uscrt",
+            config.default_upfront
+        );
     } else {
         set_creating_project(&mut deps.storage, true)?;
 
@@ -176,11 +216,11 @@ fn try_register<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![],
         data: Some(to_binary(&HandleAnswer::Register {
-            status, 
-            msg, 
-            project_id, 
-            project_address: contract_addr, 
-            project_code_hash: contract_code_hash
+            status,
+            msg,
+            project_id,
+            project_address: contract_addr,
+            project_code_hash: contract_code_hash,
         })?),
     })
 }
@@ -225,9 +265,9 @@ fn try_config<S: Storage, A: Api, Q: Querier>(
     }
 
     set_config(
-        &mut deps.storage, 
-        config.owner.clone(), 
-        config.default_upfront, 
+        &mut deps.storage,
+        config.owner.clone(),
+        config.default_upfront,
         config.default_fee.clone(),
         config.project_contract_code_id.clone(),
         config.project_contract_code_hash.clone(),
@@ -236,9 +276,9 @@ fn try_config<S: Storage, A: Api, Q: Querier>(
     status = Success;
     msg = format!(
         "New config: owner {}, default_upfront {}, default_fee {}/{}, project code id {}, project code hash {}", 
-        config.owner, 
-        config.default_upfront, 
-        config.default_fee.commission_rate_nom, 
+        config.owner,
+        config.default_upfront,
+        config.default_fee.commission_rate_nom,
         config.default_fee.commission_rate_denom,
         config.project_contract_code_id,
         String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
@@ -248,7 +288,7 @@ fn try_config<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         messages: vec![],
         log: vec![],
-        data: Some(to_binary(&HandleAnswer::Config {status, msg})?),
+        data: Some(to_binary(&HandleAnswer::Config { status, msg })?),
     })
 }
 
@@ -282,4 +322,3 @@ fn query_projects<S: Storage, A: Api, Q: Querier>(
     }
     to_binary(&QueryAnswer::Projects { projects, count })
 }
-
