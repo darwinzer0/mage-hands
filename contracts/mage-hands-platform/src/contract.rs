@@ -48,6 +48,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     match msg {
         HandleMsg::Create {
             title,
+            subtitle,
             description,
             pledged_message,
             funded_message,
@@ -60,6 +61,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             deps,
             env,
             title,
+            subtitle,
             description,
             pledged_message,
             funded_message,
@@ -95,6 +97,7 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     title: String,
+    subtitle: Option<String>,
     description: String,
     pledged_message: Option<String>,
     funded_message: Option<String>,
@@ -140,6 +143,7 @@ pub fn try_create<S: Storage, A: Api, Q: Querier>(
         let project_init_msg = ProjectInitMsg {
             creator: env.message.sender,
             title,
+            subtitle,
             description,
             pledged_message,
             funded_message,

@@ -8,6 +8,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success,
 };
 use crate::state::{
+    get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_commission_addr, get_creator, get_deadline,
     get_description, get_fee, get_funded_message, get_funder, get_goal, get_pledged_message,
     get_prng_seed, get_status, get_title, get_total, get_upfront, is_paid_out, paid_out,
@@ -47,6 +48,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     }
     set_deadline(&mut deps.storage, msg.deadline)?;
     set_title(&mut deps.storage, msg.title)?;
+    let subtitle = msg.subtitle.unwrap_or_else(|| String::from(""));
+    set_subtitle(&mut deps.storage, subtitle)?;
     set_description(&mut deps.storage, msg.description)?;
     let pledged_message = msg.pledged_message.unwrap_or_else(|| String::from(""));
     set_pledged_message(&mut deps.storage, pledged_message)?;
@@ -95,6 +98,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     let response = match msg {
         HandleMsg::ChangeText {
             title,
+            subtitle,
             description,
             pledged_message,
             funded_message,
@@ -104,6 +108,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             deps,
             env,
             title,
+            subtitle,
             description,
             pledged_message,
             funded_message,
@@ -156,6 +161,7 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     title: Option<String>,
+    subtitle: Option<String>,
     description: Option<String>,
     pledged_message: Option<String>,
     funded_message: Option<String>,
@@ -187,6 +193,11 @@ fn try_change_text<S: Storage, A: Api, Q: Querier>(
         if title.is_some() {
             set_title(&mut deps.storage, title.unwrap())?;
             updates.push(String::from("title"));
+        }
+
+        if subtitle.is_some() {
+            set_subtitle(&mut deps.storage, subtitle.unwrap())?;
+            updates.push(String::from("subtitle"));
         }
 
         if description.is_some() {
@@ -592,6 +603,9 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
     let deadline = deadline;
 
     let title = get_title(&deps.storage);
+
+    let subtitle = get_subtitle(&deps.storage);
+
     let description = get_description(&deps.storage);
 
     let categories = get_categories(&deps.storage)?;
@@ -604,6 +618,7 @@ fn query_status<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> Query
         total,
         deadline,
         title,
+        subtitle,
         description,
         categories,
     })
@@ -641,6 +656,7 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(
     let deadline = get_deadline(&deps.storage)?;
 
     let title = get_title(&deps.storage);
+    let subtitle = get_subtitle(&deps.storage);
     let description = get_description(&deps.storage);
 
     let categories = get_categories(&deps.storage)?;
@@ -675,6 +691,7 @@ fn query_status_auth<S: Storage, A: Api, Q: Querier>(
         total,
         deadline,
         title,
+        subtitle,
         description,
         categories,
         pledged_message,
@@ -751,6 +768,7 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
     let deadline = get_deadline(&deps.storage)?;
 
     let title = get_title(&deps.storage);
+    let subtitle = get_subtitle(&deps.storage);
     let description = get_description(&deps.storage);
 
     let categories = get_categories(&deps.storage)?;
@@ -786,6 +804,7 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
         total,
         deadline,
         title,
+        subtitle,
         description,
         categories,
         pledged_message,

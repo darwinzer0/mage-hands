@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct InitMsg {
     pub creator: HumanAddr,
     pub title: String,
+    pub subtitle: Option<String>,
     pub description: String,
     // message for people who have pledged money before funding has been completed
     pub pledged_message: Option<String>,
@@ -51,6 +52,7 @@ pub enum HandleMsg {
     // project creator: change the title, description, ...
     ChangeText {
         title: Option<String>,
+        subtitle: Option<String>,
         description: Option<String>,
         pledged_message: Option<String>,
         funded_message: Option<String>,
@@ -147,6 +149,7 @@ pub enum QueryAnswer {
         total: Uint128,
         deadline: u64,
         title: String,
+        subtitle: String,
         description: String,
         categories: Vec<u16>,
     },
@@ -158,6 +161,7 @@ pub enum QueryAnswer {
         total: Uint128,
         deadline: u64,
         title: String,
+        subtitle: String,
         description: String,
         categories: Vec<u16>,
         pledged_message: Option<String>,
@@ -172,6 +176,7 @@ pub enum QueryAnswer {
         total: Uint128,
         deadline: u64,
         title: String,
+        subtitle: String,
         description: String,
         categories: Vec<u16>,
         pledged_message: Option<String>,

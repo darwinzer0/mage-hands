@@ -14,6 +14,7 @@ pub const SUCCESSFUL: u8 = 3_u8;
 pub static STATUS_KEY: &[u8] = b"stat";
 pub static CREATOR_KEY: &[u8] = b"crea";
 pub static TITLE_KEY: &[u8] = b"titl";
+pub static SUBTITLE_KEY: &[u8] = b"subt";
 pub static DESCRIPTION_KEY: &[u8] = b"desc";
 pub static PLEDGED_MESSAGE_KEY: &[u8] = b"plms";
 pub static FUNDED_MESSAGE_KEY: &[u8] = b"fnms";
@@ -70,6 +71,18 @@ pub fn get_title<S: ReadonlyStorage>(storage: &S) -> String {
         Err(_) => vec![],
     };
     String::from_utf8(stored_title).ok().unwrap_or_default()
+}
+
+pub fn set_subtitle<S: Storage>(storage: &mut S, subtitle: String) -> StdResult<()> {
+    set_bin_data(storage, SUBTITLE_KEY, &subtitle.as_bytes().to_vec())
+}
+
+pub fn get_subtitle<S: ReadonlyStorage>(storage: &S) -> String {
+    let stored_subtitle: Vec<u8> = match get_bin_data(storage, SUBTITLE_KEY) {
+        Ok(subtitle) => subtitle,
+        Err(_) => vec![],
+    };
+    String::from_utf8(stored_subtitle).ok().unwrap_or_default()
 }
 
 pub fn set_description<S: Storage>(storage: &mut S, description: String) -> StdResult<()> {

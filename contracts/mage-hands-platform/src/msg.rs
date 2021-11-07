@@ -19,6 +19,7 @@ pub struct InitMsg {
 pub struct ProjectInitMsg {
     pub creator: HumanAddr,
     pub title: String,
+    pub subtitle: Option<String>,
     pub description: String,
     // message for people who have pledged money before funding has been completed
     pub pledged_message: Option<String>,
@@ -51,6 +52,7 @@ pub enum HandleMsg {
     // create a new project
     Create {
         title: String,
+        subtitle: Option<String>,
         description: String,
         pledged_message: Option<String>,
         funded_message: Option<String>,
