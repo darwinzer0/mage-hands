@@ -3,7 +3,7 @@ use crate::viewing_key::ViewingKey;
 use cosmwasm_std::{HumanAddr, Uint128};
 use schemars::JsonSchema;
 use secret_toolkit::permit::Permit;
-use secret_toolkit::utils::HandleCallback;
+use secret_toolkit::utils::{HandleCallback, Query};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -183,4 +183,21 @@ pub enum QueryAnswer {
         funded_message: Option<String>,
         contribution: Option<Uint128>,
     },
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum PlatformQueryMsg {
+    ValidatePermit {     
+        permit: Permit, 
+    },
+}
+
+impl Query for PlatformQueryMsg {
+    const BLOCK_SIZE: usize = 256;
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ValidatePermitResponse {
+    pub address: HumanAddr,
 }

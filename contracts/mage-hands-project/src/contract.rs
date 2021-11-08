@@ -5,7 +5,7 @@ use cosmwasm_std::{
 
 use crate::msg::{
     HandleAnswer, HandleMsg, InitMsg, PlatformHandleMsg, QueryAnswer, QueryMsg, ResponseStatus,
-    ResponseStatus::Failure, ResponseStatus::Success,
+    ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
 };
 use crate::state::{
     get_subtitle, set_subtitle,
@@ -15,16 +15,15 @@ use crate::state::{
     read_viewing_key, set_categories, set_commission_addr, set_creator, set_deadline,
     set_description, set_fee, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, set_upfront, write_viewing_key, EXPIRED, FUNDRAISING,
-    SUCCESSFUL,
+    SUCCESSFUL, set_config, get_config,
 };
 use crate::u256_math::{div, mul, sub};
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
 use primitive_types::U256;
-use secp256k1::Secp256k1;
 use secret_toolkit::crypto::sha_256;
-use secret_toolkit::permit::{pubkey_to_account, Permit, SignedPermit};
-use secret_toolkit::utils::HandleCallback;
+use secret_toolkit::permit::{Permit,};
+use secret_toolkit::utils::{HandleCallback, Query};
 
 const DENOM: &str = "uscrt";
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
@@ -81,6 +80,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         contract_addr: env.contract.address,
         contract_code_hash: env.contract_code_hash,
     };
+
+    set_config(&mut deps.storage, msg.source_contract.clone(), msg.source_hash.clone())?;
 
     let cosmos_msg = register_msg.to_cosmos_msg(msg.source_hash, msg.source_contract, None)?;
 
@@ -704,41 +705,14 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     permit: &Permit,
 ) -> QueryResult {
-    // Derive account from pubkey
-    let pubkey = &permit.signature.pub_key.value;
-    let account = deps.api.human_address(&pubkey_to_account(pubkey))?;
-
-    // Validate permit_name
-    let permit_name = &permit.params.permit_name;
-    if permit_name != "Mage Hands" {
-        return Err(StdError::generic_err(format!("Incorrect permit_name")));
-    }
-
-    // Validate signature, reference: https://github.com/enigmampc/SecretNetwork/blob/f591ed0cb3af28608df3bf19d6cfb733cca48100/cosmwasm/packages/wasmi-runtime/src/crypto/secp256k1.rs#L49-L82
-    let signed_bytes = to_binary(&SignedPermit::from_params(&permit.params))?;
-    let signed_bytes_hash = sha_256(signed_bytes.as_slice());
-    let secp256k1_msg = secp256k1::Message::from_slice(&signed_bytes_hash).map_err(|err| {
-        StdError::generic_err(format!(
-            "Failed to create a secp256k1 message from signed_bytes: {:?}",
-            err
-        ))
-    })?;
-
-    let secp256k1_verifier = Secp256k1::verification_only();
-
-    let secp256k1_signature = secp256k1::Signature::from_compact(&permit.signature.signature.0)
-        .map_err(|err| StdError::generic_err(format!("Malformed signature: {:?}", err)))?;
-    let secp256k1_pubkey = secp256k1::PublicKey::from_slice(pubkey.0.as_slice())
-        .map_err(|err| StdError::generic_err(format!("Malformed pubkey: {:?}", err)))?;
-
-    secp256k1_verifier
-        .verify(&secp256k1_msg, &secp256k1_signature, &secp256k1_pubkey)
-        .map_err(|err| {
-            StdError::generic_err(format!(
-                "Failed to verify signatures for the given permit: {:?}",
-                err
-            ))
-        })?;
+    let get_validate_permit = PlatformQueryMsg::ValidatePermit { permit: permit.clone() };
+    let config = get_config(&deps.storage)?;
+    let validate_permit_response: ValidatePermitResponse = get_validate_permit.query(
+        &deps.querier,
+        config.platform_hash.to_string(),
+        config.platform_contract,
+    )?;
+    let address = validate_permit_response.address;
 
     let status_string;
 
@@ -773,7 +747,7 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
 
     let categories = get_categories(&deps.storage)?;
 
-    let sender_address_raw = deps.api.canonical_address(&account)?;
+    let sender_address_raw = deps.api.canonical_address(&address)?;
 
     let stored_funder = get_funder(&deps.storage, &sender_address_raw);
 

@@ -21,6 +21,7 @@ pub struct Config {
     pub default_fee: StoredFee,
     pub project_contract_code_id: u64,
     pub project_contract_code_hash: Vec<u8>,
+    pub contract_address: CanonicalAddr,
 }
 
 pub fn set_config<S: Storage>(
@@ -30,6 +31,7 @@ pub fn set_config<S: Storage>(
     default_fee: StoredFee,
     project_contract_code_id: u64,
     project_contract_code_hash: Vec<u8>,
+    contract_address: CanonicalAddr,
 ) -> StdResult<()> {
     let config = Config {
         owner,
@@ -37,6 +39,7 @@ pub fn set_config<S: Storage>(
         default_fee,
         project_contract_code_id,
         project_contract_code_hash,
+        contract_address,
     };
     set_bin_data(storage, CONFIG_KEY, &config)
 }

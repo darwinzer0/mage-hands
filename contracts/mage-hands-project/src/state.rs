@@ -1,5 +1,5 @@
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{HumanAddr, CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use schemars::JsonSchema;
 use secret_toolkit::storage::{AppendStore, AppendStoreMut};
@@ -11,6 +11,7 @@ pub const FUNDRAISING: u8 = 1_u8;
 pub const EXPIRED: u8 = 2_u8;
 pub const SUCCESSFUL: u8 = 3_u8;
 
+pub static CONFIG_KEY: &[u8] = b"conf";
 pub static STATUS_KEY: &[u8] = b"stat";
 pub static CREATOR_KEY: &[u8] = b"crea";
 pub static TITLE_KEY: &[u8] = b"titl";
@@ -33,6 +34,28 @@ pub const PREFIX_VIEWING_KEY: &[u8] = b"vkey";
 pub const SEED_KEY: &[u8] = b"seed";
 
 pub static PAID_OUT_KEY: &[u8] = b"pout";
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Config {
+    pub platform_contract: HumanAddr,
+    pub platform_hash: String,
+}
+
+pub fn set_config<S: Storage>(
+    storage: &mut S,
+    platform_contract: HumanAddr,
+    platform_hash: String,
+) -> StdResult<()> {
+    let config = Config {
+        platform_contract,
+        platform_hash
+    };
+    set_bin_data(storage, CONFIG_KEY, &config)
+}
+
+pub fn get_config<S: ReadonlyStorage>(storage: &S) -> StdResult<Config> {
+    get_bin_data(storage, CONFIG_KEY)
+}
 
 pub fn set_prng_seed<S: Storage>(storage: &mut S, prng_seed: &Vec<u8>) -> StdResult<()> {
     set_bin_data(storage, SEED_KEY, &prng_seed)

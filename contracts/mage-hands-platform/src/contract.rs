@@ -11,7 +11,7 @@ use cosmwasm_std::{
     InitResponse, Querier, QueryResult, StdError, StdResult, Storage, Uint128,
 };
 use secret_toolkit::utils::InitCallback;
-use secret_toolkit::permit::{RevokedPermits};
+use secret_toolkit::permit::{ validate, RevokedPermits,Permit, };
 
 const DENOM: &str = "uscrt";
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
@@ -36,6 +36,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         msg.default_fee.into_stored()?,
         msg.project_contract_code_id,
         msg.project_contract_code_hash.as_bytes().to_vec(),
+        deps.api.canonical_address(&env.contract.address)?,
     )?;
 
     //debug_print!("Contract was initialized by {}", env.message.sender);
@@ -291,6 +292,7 @@ fn try_config<S: Storage, A: Api, Q: Querier>(
         config.default_fee.clone(),
         config.project_contract_code_id.clone(),
         config.project_contract_code_hash.clone(),
+        config.contract_address,
     )?;
 
     status = Success;
@@ -336,7 +338,8 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Projects { page, page_size } => query_projects(deps, page, page_size),
+        QueryMsg::Projects { page, page_size } => query_projects(deps, page, page_size,),
+        QueryMsg::ValidatePermit { permit, } => query_validate_permit(deps, permit,),
     }
 }
 
@@ -360,4 +363,16 @@ fn query_projects<S: Storage, A: Api, Q: Querier>(
         count = get_projects_count(&deps.storage)?;
     }
     to_binary(&QueryAnswer::Projects { projects, count })
+}
+
+fn query_validate_permit<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    permit: Permit, 
+) -> QueryResult {
+    let config = get_config(&deps.storage)?;
+    let address = validate(deps, PREFIX_REVOKED_PERMITS, &permit, deps.api.human_address(&config.contract_address)?)?;
+
+    to_binary(&QueryAnswer::ValidatePermit {
+        address,
+    })
 }

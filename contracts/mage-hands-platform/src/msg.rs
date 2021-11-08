@@ -2,7 +2,7 @@ use cosmwasm_std::{HumanAddr, Uint128};
 use schemars::JsonSchema;
 use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
-
+use secret_toolkit::permit::Permit;
 use crate::state::Fee;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -120,6 +120,10 @@ pub enum HandleAnswer {
 pub enum QueryMsg {
     // gets a paginated list of projects
     Projects { page: u32, page_size: u32 },
+
+    ValidatePermit { 
+        permit: Permit,
+    },
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
@@ -128,6 +132,9 @@ pub enum QueryAnswer {
     Projects {
         projects: Vec<ContractInfo>,
         count: u32,
+    },
+    ValidatePermit {
+        address: HumanAddr,
     },
 }
 
