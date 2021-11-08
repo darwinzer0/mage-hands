@@ -86,7 +86,8 @@ pub fn get_subtitle<S: ReadonlyStorage>(storage: &S) -> String {
 }
 
 pub fn set_description<S: Storage>(storage: &mut S, description: String) -> StdResult<()> {
-    set_bin_data(storage, DESCRIPTION_KEY, &description.as_bytes().to_vec())
+    let bytes = base64::decode(&description).map_err(StdError::invalid_base64)?;
+    set_bin_data(storage, DESCRIPTION_KEY, &bytes)
 }
 
 pub fn get_description<S: ReadonlyStorage>(storage: &S) -> String {
@@ -94,16 +95,18 @@ pub fn get_description<S: ReadonlyStorage>(storage: &S) -> String {
         Ok(description) => description,
         Err(_) => vec![],
     };
-    String::from_utf8(stored_description)
-        .ok()
-        .unwrap_or_default()
+    base64::encode(stored_description)
+    //String::from_utf8(stored_description)
+    //    .ok()
+    //    .unwrap_or_default()
 }
 
 pub fn set_pledged_message<S: Storage>(storage: &mut S, pledged_message: String) -> StdResult<()> {
+    let bytes = base64::decode(&pledged_message).map_err(StdError::invalid_base64)?;
     set_bin_data(
         storage,
         PLEDGED_MESSAGE_KEY,
-        &pledged_message.as_bytes().to_vec(),
+        &bytes,
     )
 }
 
@@ -112,16 +115,18 @@ pub fn get_pledged_message<S: ReadonlyStorage>(storage: &S) -> String {
         Ok(pledged_message) => pledged_message,
         Err(_) => vec![],
     };
-    String::from_utf8(stored_pledged_message)
-        .ok()
-        .unwrap_or_default()
+    base64::encode(stored_pledged_message)
+    //String::from_utf8(stored_pledged_message)
+    //    .ok()
+    //    .unwrap_or_default()
 }
 
 pub fn set_funded_message<S: Storage>(storage: &mut S, funded_message: String) -> StdResult<()> {
+    let bytes = base64::decode(&funded_message).map_err(StdError::invalid_base64)?;
     set_bin_data(
         storage,
         FUNDED_MESSAGE_KEY,
-        &funded_message.as_bytes().to_vec(),
+        &bytes,
     )
 }
 
@@ -130,9 +135,10 @@ pub fn get_funded_message<S: ReadonlyStorage>(storage: &S) -> String {
         Ok(funded_message) => funded_message,
         Err(_) => vec![],
     };
-    String::from_utf8(stored_funded_message)
-        .ok()
-        .unwrap_or_default()
+    base64::encode(stored_funded_message)
+    //String::from_utf8(stored_funded_message)
+    //    .ok()
+    //    .unwrap_or_default()
 }
 
 pub fn set_goal<S: Storage>(storage: &mut S, goal: u128) -> StdResult<()> {
