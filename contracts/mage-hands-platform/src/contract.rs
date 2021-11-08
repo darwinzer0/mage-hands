@@ -1,6 +1,6 @@
 use crate::msg::{
     ContractInfo, HandleAnswer, HandleMsg, InitMsg, ProjectInitMsg, QueryAnswer, QueryMsg,
-    ResponseStatus::Failure, ResponseStatus::Success,
+    ResponseStatus::Failure, ResponseStatus::Success, space_pad,
 };
 use crate::state::{
     add_project, get_config, get_projects, get_projects_count, is_creating_project, project_count,
@@ -11,8 +11,11 @@ use cosmwasm_std::{
     InitResponse, Querier, QueryResult, StdError, StdResult, Storage, Uint128,
 };
 use secret_toolkit::utils::InitCallback;
+use secret_toolkit::permit::{RevokedPermits};
 
 const DENOM: &str = "uscrt";
+pub const RESPONSE_BLOCK_SIZE: usize = 256;
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -40,12 +43,23 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     Ok(InitResponse::default())
 }
 
+fn pad_response(response: StdResult<HandleResponse>) -> StdResult<HandleResponse> {
+    response.map(|mut response| {
+        response.data = response.data.map(|mut data| {
+            space_pad(RESPONSE_BLOCK_SIZE, &mut data.0);
+            data
+        });
+        response
+    })
+}
+
+
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
-    match msg {
+    let response = match msg {
         HandleMsg::Create {
             title,
             subtitle,
@@ -90,7 +104,9 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
             contract_addr,
             contract_code_hash,
         } => try_register(deps, env, contract_addr, contract_code_hash),
-    }
+        HandleMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, env, permit_name),
+    };
+    pad_response(response)
 }
 
 pub fn try_create<S: Storage, A: Api, Q: Querier>(
@@ -293,6 +309,25 @@ fn try_config<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![],
         data: Some(to_binary(&HandleAnswer::Config { status, msg })?),
+    })
+}
+
+fn revoke_permit<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    permit_name: String,
+) -> StdResult<HandleResponse> {
+    RevokedPermits::revoke_permit(
+        &mut deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        &env.message.sender,
+        &permit_name,
+    );
+
+    Ok(HandleResponse {
+        messages: vec![],
+        log: vec![],
+        data: Some(to_binary(&HandleAnswer::RevokePermit { status: Success })?),
     })
 }
 

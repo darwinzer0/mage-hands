@@ -76,6 +76,12 @@ pub enum HandleMsg {
         contract_addr: HumanAddr,
         contract_code_hash: String,
     },
+
+    // Permit
+    RevokePermit {
+        permit_name: String,
+        padding: Option<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -103,6 +109,10 @@ pub enum HandleAnswer {
         project_address: HumanAddr,
         project_code_hash: String,
     },
+    // Permit
+    RevokePermit {
+        status: ResponseStatus,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -128,4 +138,18 @@ pub struct ContractInfo {
     pub code_hash: String,
     /// contract's address
     pub address: HumanAddr,
+}
+
+// Take a Vec<u8> and pad it up to a multiple of `block_size`, using spaces at the end.
+pub fn space_pad(block_size: usize, message: &mut Vec<u8>) -> &mut Vec<u8> {
+    let len = message.len();
+    let surplus = len % block_size;
+    if surplus == 0 {
+        return message;
+    }
+
+    let missing = block_size - surplus;
+    message.reserve(missing);
+    message.extend(std::iter::repeat(b' ').take(missing));
+    message
 }
