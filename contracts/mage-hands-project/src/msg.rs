@@ -198,6 +198,11 @@ impl Query for PlatformQueryMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ValidatePermitResponse {
+pub struct ValidatePermitInnerResponse {
     pub address: HumanAddr,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ValidatePermitResponse {
+    pub validate_permit: ValidatePermitInnerResponse,
 }

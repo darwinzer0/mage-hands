@@ -712,7 +712,7 @@ fn query_status_with_permit<S: Storage, A: Api, Q: Querier>(
         config.platform_hash.to_string(),
         config.platform_contract,
     )?;
-    let address = validate_permit_response.address;
+    let address = validate_permit_response.validate_permit.address;
 
     let status_string;
 
