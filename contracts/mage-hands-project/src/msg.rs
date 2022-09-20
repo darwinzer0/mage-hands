@@ -18,11 +18,6 @@ pub struct InstantiateMsg {
     pub deadline: u64,
     pub categories: Vec<u16>,
 
-    // commission
-    //pub commission_addr: HumanAddr,
-    //pub upfront: Uint128,
-    //pub fee: Fee,
-
     pub entropy: String,
 
     pub source_contract: Addr,
