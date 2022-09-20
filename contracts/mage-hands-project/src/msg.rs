@@ -1,14 +1,12 @@
-use crate::state::Fee;
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{HumanAddr, Uint128};
-use schemars::JsonSchema;
+use cosmwasm_std::{Addr, Uint128};
 use secret_toolkit::permit::Permit;
 use secret_toolkit::utils::{HandleCallback, Query};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub creator: HumanAddr,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct InstantiateMsg {
+    pub creator: Addr,
     pub title: String,
     pub subtitle: Option<String>,
     pub description: String,
@@ -21,34 +19,34 @@ pub struct InitMsg {
     pub categories: Vec<u16>,
 
     // commission
-    pub commission_addr: HumanAddr,
-    pub upfront: Uint128,
-    pub fee: Fee,
+    //pub commission_addr: HumanAddr,
+    //pub upfront: Uint128,
+    //pub fee: Fee,
 
     pub entropy: String,
 
-    pub source_contract: HumanAddr,
+    pub source_contract: Addr,
     pub source_hash: String,
 
     pub padding: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum PlatformHandleMsg {
+pub enum PlatformExecuteMsg {
     Register {
-        contract_addr: HumanAddr,
+        contract_addr: Addr,
         contract_code_hash: String,
     },
 }
 
-impl HandleCallback for PlatformHandleMsg {
+impl HandleCallback for PlatformExecuteMsg {
     const BLOCK_SIZE: usize = 256;
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     // project creator: change the title, description, ...
     ChangeText {
         title: Option<String>,
@@ -84,16 +82,16 @@ pub enum HandleMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseStatus {
     Success,
     Failure,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleAnswer {
+pub enum ExecuteAnswer {
     ChangeText {
         status: ResponseStatus,
         msg: String,
@@ -120,17 +118,17 @@ pub enum HandleAnswer {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // GetStatus returns the current status: Fundraising, Expired, or Successful
     Status {},
-    StatusAuth { address: HumanAddr, key: String },
+    StatusAuth { address: Addr, key: String },
     StatusWithPermit { permit: Permit },
 }
 
 impl QueryMsg {
-    pub fn get_validation_params(&self) -> (Vec<&HumanAddr>, ViewingKey) {
+    pub fn get_validation_params(&self) -> (Vec<&Addr>, ViewingKey) {
         match self {
             Self::StatusAuth { address, key, .. } => (vec![address], ViewingKey(key.clone())),
             _ => panic!("This query type does not require authentication"),
@@ -138,11 +136,11 @@ impl QueryMsg {
     }
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     Status {
-        creator: HumanAddr,
+        creator: Addr,
         status: String,
         paid_out: bool,
         goal: Uint128,
@@ -154,7 +152,7 @@ pub enum QueryAnswer {
         categories: Vec<u16>,
     },
     StatusAuth {
-        creator: HumanAddr,
+        creator: Addr,
         status: String,
         paid_out: bool,
         goal: Uint128,
@@ -169,7 +167,7 @@ pub enum QueryAnswer {
         contribution: Option<Uint128>,
     },
     StatusWithPermit {
-        creator: HumanAddr,
+        creator: Addr,
         status: String,
         paid_out: bool,
         goal: Uint128,
@@ -185,7 +183,7 @@ pub enum QueryAnswer {
     },
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum PlatformQueryMsg {
     ValidatePermit {     
@@ -197,12 +195,12 @@ impl Query for PlatformQueryMsg {
     const BLOCK_SIZE: usize = 256;
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ValidatePermitInnerResponse {
-    pub address: HumanAddr,
+    pub address: Addr,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ValidatePermitResponse {
     pub validate_permit: ValidatePermitInnerResponse,
 }

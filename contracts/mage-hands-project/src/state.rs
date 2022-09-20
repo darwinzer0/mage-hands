@@ -1,8 +1,8 @@
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{HumanAddr, CanonicalAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, CanonicalAddr, StdError, StdResult, Storage, Uint128};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use schemars::JsonSchema;
-use secret_toolkit::storage::{AppendStore, AppendStoreMut};
+use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
@@ -27,23 +27,25 @@ pub static FEE_KEY: &[u8] = b"feek";
 pub static UPFRONT_KEY: &[u8] = b"upfr";
 pub static COMMISSION_ADDR_KEY: &[u8] = b"comm";
 
-pub static FUNDER_LIST_PREFIX: &[u8] = b"fund";
+//pub static FUNDER_LIST_PREFIX: &[u8] = b"fund";
 pub static FUNDER_AMOUNT_PREFIX: &[u8] = b"amnt";
+
+pub static FUNDER_STORE: AppendStore<CanonicalAddr> = AppendStore::new(b"fund");
 
 pub const PREFIX_VIEWING_KEY: &[u8] = b"vkey";
 pub const SEED_KEY: &[u8] = b"seed";
 
 pub static PAID_OUT_KEY: &[u8] = b"pout";
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
-    pub platform_contract: HumanAddr,
+    pub platform_contract: Addr,
     pub platform_hash: String,
 }
 
-pub fn set_config<S: Storage>(
-    storage: &mut S,
-    platform_contract: HumanAddr,
+pub fn set_config(
+    storage: &mut dyn Storage,
+    platform_contract: Addr,
     platform_hash: String,
 ) -> StdResult<()> {
     let config = Config {
@@ -53,42 +55,42 @@ pub fn set_config<S: Storage>(
     set_bin_data(storage, CONFIG_KEY, &config)
 }
 
-pub fn get_config<S: ReadonlyStorage>(storage: &S) -> StdResult<Config> {
+pub fn get_config(storage: &dyn Storage) -> StdResult<Config> {
     get_bin_data(storage, CONFIG_KEY)
 }
 
-pub fn set_prng_seed<S: Storage>(storage: &mut S, prng_seed: &Vec<u8>) -> StdResult<()> {
+pub fn set_prng_seed(storage: &mut dyn Storage, prng_seed: &Vec<u8>) -> StdResult<()> {
     set_bin_data(storage, SEED_KEY, &prng_seed)
 }
 
-pub fn get_prng_seed<S: ReadonlyStorage>(storage: &S) -> StdResult<Vec<u8>> {
+pub fn get_prng_seed(storage: &dyn Storage) -> StdResult<Vec<u8>> {
     get_bin_data(storage, SEED_KEY)
 }
 
-pub fn set_status<S: Storage>(storage: &mut S, new_status: u8) -> StdResult<()> {
+pub fn set_status(storage: &mut dyn Storage, new_status: u8) -> StdResult<()> {
     if new_status < 1 || new_status > 3 {
         return Err(StdError::generic_err("Invalid project status"));
     }
     set_bin_data(storage, STATUS_KEY, &new_status)
 }
 
-pub fn get_status<S: ReadonlyStorage>(storage: &S) -> StdResult<u8> {
+pub fn get_status(storage: &dyn Storage) -> StdResult<u8> {
     get_bin_data(storage, STATUS_KEY)
 }
 
-pub fn set_creator<S: Storage>(storage: &mut S, creator: &CanonicalAddr) -> StdResult<()> {
+pub fn set_creator(storage: &mut dyn Storage, creator: &CanonicalAddr) -> StdResult<()> {
     set_bin_data(storage, CREATOR_KEY, &creator)
 }
 
-pub fn get_creator<S: ReadonlyStorage>(storage: &S) -> StdResult<CanonicalAddr> {
+pub fn get_creator(storage: &dyn Storage) -> StdResult<CanonicalAddr> {
     get_bin_data(storage, CREATOR_KEY)
 }
 
-pub fn set_title<S: Storage>(storage: &mut S, title: String) -> StdResult<()> {
+pub fn set_title(storage: &mut dyn Storage, title: String) -> StdResult<()> {
     set_bin_data(storage, TITLE_KEY, &title.as_bytes().to_vec())
 }
 
-pub fn get_title<S: ReadonlyStorage>(storage: &S) -> String {
+pub fn get_title(storage: &dyn Storage) -> String {
     let stored_title: Vec<u8> = match get_bin_data(storage, TITLE_KEY) {
         Ok(title) => title,
         Err(_) => vec![],
@@ -96,11 +98,11 @@ pub fn get_title<S: ReadonlyStorage>(storage: &S) -> String {
     String::from_utf8(stored_title).ok().unwrap_or_default()
 }
 
-pub fn set_subtitle<S: Storage>(storage: &mut S, subtitle: String) -> StdResult<()> {
+pub fn set_subtitle(storage: &mut dyn Storage, subtitle: String) -> StdResult<()> {
     set_bin_data(storage, SUBTITLE_KEY, &subtitle.as_bytes().to_vec())
 }
 
-pub fn get_subtitle<S: ReadonlyStorage>(storage: &S) -> String {
+pub fn get_subtitle(storage: &dyn Storage) -> String {
     let stored_subtitle: Vec<u8> = match get_bin_data(storage, SUBTITLE_KEY) {
         Ok(subtitle) => subtitle,
         Err(_) => vec![],
@@ -108,12 +110,12 @@ pub fn get_subtitle<S: ReadonlyStorage>(storage: &S) -> String {
     String::from_utf8(stored_subtitle).ok().unwrap_or_default()
 }
 
-pub fn set_description<S: Storage>(storage: &mut S, description: String) -> StdResult<()> {
+pub fn set_description(storage: &mut dyn Storage, description: String) -> StdResult<()> {
     let bytes = base64::decode(&description).map_err(StdError::invalid_base64)?;
     set_bin_data(storage, DESCRIPTION_KEY, &bytes)
 }
 
-pub fn get_description<S: ReadonlyStorage>(storage: &S) -> String {
+pub fn get_description(storage: &dyn Storage) -> String {
     let stored_description: Vec<u8> = match get_bin_data(storage, DESCRIPTION_KEY) {
         Ok(description) => description,
         Err(_) => vec![],
@@ -124,7 +126,7 @@ pub fn get_description<S: ReadonlyStorage>(storage: &S) -> String {
     //    .unwrap_or_default()
 }
 
-pub fn set_pledged_message<S: Storage>(storage: &mut S, pledged_message: String) -> StdResult<()> {
+pub fn set_pledged_message(storage: &mut dyn Storage, pledged_message: String) -> StdResult<()> {
     let bytes = base64::decode(&pledged_message).map_err(StdError::invalid_base64)?;
     set_bin_data(
         storage,
@@ -133,7 +135,7 @@ pub fn set_pledged_message<S: Storage>(storage: &mut S, pledged_message: String)
     )
 }
 
-pub fn get_pledged_message<S: ReadonlyStorage>(storage: &S) -> String {
+pub fn get_pledged_message(storage: &dyn Storage) -> String {
     let stored_pledged_message: Vec<u8> = match get_bin_data(storage, PLEDGED_MESSAGE_KEY) {
         Ok(pledged_message) => pledged_message,
         Err(_) => vec![],
@@ -144,7 +146,7 @@ pub fn get_pledged_message<S: ReadonlyStorage>(storage: &S) -> String {
     //    .unwrap_or_default()
 }
 
-pub fn set_funded_message<S: Storage>(storage: &mut S, funded_message: String) -> StdResult<()> {
+pub fn set_funded_message(storage: &mut dyn Storage, funded_message: String) -> StdResult<()> {
     let bytes = base64::decode(&funded_message).map_err(StdError::invalid_base64)?;
     set_bin_data(
         storage,
@@ -153,7 +155,7 @@ pub fn set_funded_message<S: Storage>(storage: &mut S, funded_message: String) -
     )
 }
 
-pub fn get_funded_message<S: ReadonlyStorage>(storage: &S) -> String {
+pub fn get_funded_message(storage: &dyn Storage) -> String {
     let stored_funded_message: Vec<u8> = match get_bin_data(storage, FUNDED_MESSAGE_KEY) {
         Ok(funded_message) => funded_message,
         Err(_) => vec![],
@@ -164,62 +166,62 @@ pub fn get_funded_message<S: ReadonlyStorage>(storage: &S) -> String {
     //    .unwrap_or_default()
 }
 
-pub fn set_goal<S: Storage>(storage: &mut S, goal: u128) -> StdResult<()> {
+pub fn set_goal(storage: &mut dyn Storage, goal: u128) -> StdResult<()> {
     set_bin_data(storage, GOAL_KEY, &goal)
 }
 
-pub fn get_goal<S: ReadonlyStorage>(storage: &S) -> StdResult<u128> {
+pub fn get_goal(storage: &dyn Storage) -> StdResult<u128> {
     get_bin_data(storage, GOAL_KEY)
 }
 
-pub fn set_deadline<S: Storage>(storage: &mut S, deadline: u64) -> StdResult<()> {
+pub fn set_deadline(storage: &mut dyn Storage, deadline: u64) -> StdResult<()> {
     set_bin_data(storage, DEADLINE_KEY, &deadline)
 }
 
-pub fn get_deadline<S: ReadonlyStorage>(storage: &S) -> StdResult<u64> {
+pub fn get_deadline(storage: &dyn Storage) -> StdResult<u64> {
     get_bin_data(storage, DEADLINE_KEY)
 }
 
-pub fn set_categories<S: Storage>(storage: &mut S, categories: Vec<u16>) -> StdResult<()> {
+pub fn set_categories(storage: &mut dyn Storage, categories: Vec<u16>) -> StdResult<()> {
     set_bin_data(storage, CATEGORIES_KEY, &categories)
 }
 
-pub fn get_categories<S: ReadonlyStorage>(storage: &S) -> StdResult<Vec<u16>> {
+pub fn get_categories(storage: &dyn Storage) -> StdResult<Vec<u16>> {
     get_bin_data(storage, CATEGORIES_KEY)
 }
 
-pub fn set_total<S: Storage>(storage: &mut S, total: u128) -> StdResult<()> {
+pub fn set_total(storage: &mut dyn Storage, total: u128) -> StdResult<()> {
     set_bin_data(storage, TOTAL_KEY, &total)
 }
 
-pub fn get_total<S: ReadonlyStorage>(storage: &S) -> StdResult<u128> {
+pub fn get_total(storage: &dyn Storage) -> StdResult<u128> {
     get_bin_data(storage, TOTAL_KEY)
 }
 
-pub fn set_fee<S: Storage>(storage: &mut S, fee: StoredFee) -> StdResult<()> {
+pub fn set_fee(storage: &mut dyn Storage, fee: StoredFee) -> StdResult<()> {
     set_bin_data(storage, FEE_KEY, &fee)
 }
 
-pub fn get_fee<S: ReadonlyStorage>(storage: &S) -> StdResult<StoredFee> {
+pub fn get_fee(storage: &dyn Storage) -> StdResult<StoredFee> {
     get_bin_data(storage, FEE_KEY)
 }
 
-pub fn set_upfront<S: Storage>(storage: &mut S, upfront: u128) -> StdResult<()> {
+pub fn set_upfront(storage: &mut dyn Storage, upfront: u128) -> StdResult<()> {
     set_bin_data(storage, UPFRONT_KEY, &upfront)
 }
 
-pub fn get_upfront<S: ReadonlyStorage>(storage: &S) -> StdResult<u128> {
+pub fn get_upfront(storage: &dyn Storage) -> StdResult<u128> {
     get_bin_data(storage, UPFRONT_KEY)
 }
 
-pub fn set_commission_addr<S: Storage>(
-    storage: &mut S,
+pub fn set_commission_addr(
+    storage: &mut dyn Storage,
     commission_addr: &CanonicalAddr,
 ) -> StdResult<()> {
     set_bin_data(storage, COMMISSION_ADDR_KEY, &commission_addr)
 }
 
-pub fn get_commission_addr<S: ReadonlyStorage>(storage: &S) -> StdResult<CanonicalAddr> {
+pub fn get_commission_addr(storage: &dyn Storage) -> StdResult<CanonicalAddr> {
     get_bin_data(storage, COMMISSION_ADDR_KEY)
 }
 
@@ -231,8 +233,8 @@ pub struct StoredFunder {
     pub amount: u128,
 }
 
-pub fn set_funder<S: Storage>(
-    storage: &mut S,
+pub fn set_funder(
+    storage: &mut dyn Storage,
     funder_addr: &CanonicalAddr,
     idx: u32,
     anonymous: bool,
@@ -249,22 +251,20 @@ pub fn set_funder<S: Storage>(
     )
 }
 
-pub fn get_funder<S: ReadonlyStorage>(
-    storage: &S,
+pub fn get_funder(
+    storage: &dyn Storage,
     funder_addr: &CanonicalAddr,
 ) -> StdResult<StoredFunder> {
     get_bin_data(storage, funder_addr.as_slice())
 }
 
-pub fn push_funder<S: Storage>(storage: &mut S, funder_addr: &CanonicalAddr) -> StdResult<u32> {
-    let mut store = PrefixedStorage::new(&FUNDER_LIST_PREFIX, storage);
-    let mut store = AppendStoreMut::<CanonicalAddr, _>::attach_or_create(&mut store)?;
-    store.push(&funder_addr)?;
-    Ok(store.len() - 1)
+pub fn push_funder(storage: &mut dyn Storage, funder_addr: &CanonicalAddr) -> StdResult<u32> {
+    FUNDER_STORE.push(storage, &funder_addr)?;
+    Ok(FUNDER_STORE.get_len(storage)? - 1)
 }
 
-pub fn add_funds<S: Storage>(
-    storage: &mut S,
+pub fn add_funds(
+    storage: &mut dyn Storage,
     funder_addr: &CanonicalAddr,
     anonymous: bool,
     amount: u128,
@@ -291,7 +291,7 @@ pub fn add_funds<S: Storage>(
     Ok(())
 }
 
-pub fn clear_funds<S: Storage>(storage: &mut S, funder_addr: &CanonicalAddr) -> StdResult<u128> {
+pub fn clear_funds(storage: &mut dyn Storage, funder_addr: &CanonicalAddr) -> StdResult<u128> {
     let stored_funder = get_funder(storage, funder_addr)?;
     if stored_funder.amount > 0 {
         let prev_total = get_total(storage)?;
@@ -301,27 +301,19 @@ pub fn clear_funds<S: Storage>(storage: &mut S, funder_addr: &CanonicalAddr) -> 
     Ok(stored_funder.amount)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Funder {
     pub address: Option<CanonicalAddr>,
     pub amount: u128,
 }
 
-pub fn get_funders<S: ReadonlyStorage>(
-    storage: &S,
+pub fn get_funders(
+    storage: &dyn Storage,
     page: u32,
     page_size: u32,
 ) -> StdResult<Vec<Funder>> {
-    let store = ReadonlyPrefixedStorage::new(&FUNDER_LIST_PREFIX, storage);
-
-    let store = if let Some(result) = AppendStore::<CanonicalAddr, _>::attach(&store) {
-        result?
-    } else {
-        return Ok(vec![]);
-    };
-
-    let funder_iter = store
-        .iter()
+    let funder_iter = FUNDER_STORE
+        .iter(storage)?
         .skip((page * page_size) as _)
         .take(page_size as _);
     let funders: StdResult<Vec<Funder>> = funder_iter
@@ -357,7 +349,7 @@ pub fn get_funders<S: ReadonlyStorage>(
 // Fee
 //
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Fee {
     pub commission_rate_nom: Uint128,
     pub commission_rate_denom: Uint128,
@@ -382,18 +374,18 @@ pub struct StoredFee {
 impl StoredFee {
     pub fn into_humanized(self) -> StdResult<Fee> {
         let fee = Fee {
-            commission_rate_nom: Uint128(self.commission_rate_nom),
-            commission_rate_denom: Uint128(self.commission_rate_denom),
+            commission_rate_nom: Uint128::from(self.commission_rate_nom),
+            commission_rate_denom: Uint128::from(self.commission_rate_denom),
         };
         Ok(fee)
     }
 }
 
-pub fn paid_out<S: Storage>(storage: &mut S) -> StdResult<()> {
+pub fn paid_out(storage: &mut dyn Storage) -> StdResult<()> {
     set_bin_data(storage, PAID_OUT_KEY, &true)
 }
 
-pub fn is_paid_out<S: ReadonlyStorage>(storage: &S) -> bool {
+pub fn is_paid_out(storage: &dyn Storage) -> bool {
     get_bin_data(storage, PAID_OUT_KEY).unwrap_or_else(|_| false)
 }
 
@@ -401,13 +393,13 @@ pub fn is_paid_out<S: ReadonlyStorage>(storage: &S) -> bool {
 // Viewing Keys
 //
 
-pub fn write_viewing_key<S: Storage>(store: &mut S, owner: &CanonicalAddr, key: &ViewingKey) {
-    let mut user_key_store = PrefixedStorage::new(PREFIX_VIEWING_KEY, store);
+pub fn write_viewing_key(storage: &mut dyn Storage, owner: &CanonicalAddr, key: &ViewingKey) {
+    let mut user_key_store = PrefixedStorage::new(storage, PREFIX_VIEWING_KEY);
     user_key_store.set(owner.as_slice(), &key.to_hashed());
 }
 
-pub fn read_viewing_key<S: Storage>(store: &S, owner: &CanonicalAddr) -> Option<Vec<u8>> {
-    let user_key_store = ReadonlyPrefixedStorage::new(PREFIX_VIEWING_KEY, store);
+pub fn read_viewing_key(storage: &dyn Storage, owner: &CanonicalAddr) -> Option<Vec<u8>> {
+    let user_key_store = ReadonlyPrefixedStorage::new(storage, PREFIX_VIEWING_KEY);
     user_key_store.get(owner.as_slice())
 }
 
@@ -415,8 +407,8 @@ pub fn read_viewing_key<S: Storage>(store: &S, owner: &CanonicalAddr) -> Option<
 // Bin data storage setters and getters
 //
 
-pub fn set_bin_data<T: Serialize, S: Storage>(
-    storage: &mut S,
+pub fn set_bin_data<T: Serialize>(
+    storage: &mut dyn Storage,
     key: &[u8],
     data: &T,
 ) -> StdResult<()> {
@@ -426,8 +418,8 @@ pub fn set_bin_data<T: Serialize, S: Storage>(
     Ok(())
 }
 
-pub fn get_bin_data<T: DeserializeOwned, S: ReadonlyStorage>(
-    storage: &S,
+pub fn get_bin_data<T: DeserializeOwned>(
+    storage: &dyn Storage,
     key: &[u8],
 ) -> StdResult<T> {
     let bin_data = storage.get(key);
