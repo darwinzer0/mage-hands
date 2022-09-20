@@ -9,18 +9,16 @@ use crate::msg::{
 };
 use crate::state::{
     get_subtitle, set_subtitle,
-    add_funds, clear_funds, get_categories, get_commission_addr, get_creator, get_deadline,
-    get_description, get_fee, get_funded_message, get_funder, get_goal, get_pledged_message,
-    get_prng_seed, get_status, get_title, get_total, get_upfront, is_paid_out, paid_out,
-    read_viewing_key, set_categories, set_commission_addr, set_creator, set_deadline,
-    set_description, set_fee, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
-    set_status, set_title, set_total, set_upfront, write_viewing_key, EXPIRED, FUNDRAISING,
+    add_funds, clear_funds, get_categories, get_creator, get_deadline,
+    get_description, get_funded_message, get_funder, get_goal, get_pledged_message,
+    get_prng_seed, get_status, get_title, get_total, is_paid_out, paid_out,
+    read_viewing_key, set_categories, set_creator, set_deadline,
+    set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
+    set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config,
 };
-use crate::u256_math::{div, mul, sub};
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
-use primitive_types::U256;
 use secret_toolkit::crypto::sha_256;
 use secret_toolkit::permit::{Permit,};
 use secret_toolkit::utils::{HandleCallback, Query};
@@ -33,7 +31,7 @@ pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let prng_seed = sha_256(base64::encode(msg.entropy).as_bytes()).to_vec();
@@ -414,93 +412,14 @@ fn try_pay_out(
     // time has completed and it is successful
     if env.block.height > deadline && status == SUCCESSFUL {
         let total = get_total(deps.storage)?;
-        let fee = get_fee(deps.storage)?;
-
-        if fee.commission_rate_nom == 0 {
-            messages.push(CosmosMsg::Bank(BankMsg::Send {
-                to_address: info.sender.into_string(),
-                amount: vec![Coin {
-                    denom: DENOM.to_string(),
-                    amount: Uint128::from(total),
-                }],
-            }));
-            msg = format!("Pay out {} uscrt", total);
-        } else {
-            let total_u256 = Some(U256::from(total));
-            let commission_rate_nom = Some(U256::from(fee.commission_rate_nom));
-            let commission_rate_denom = Some(U256::from(fee.commission_rate_denom));
-            let commission_addr = get_commission_addr(deps.storage)?;
-            let commission_addr_human = deps.api.addr_humanize(&commission_addr)?;
-            let upfront = get_upfront(deps.storage)?;
-            let upfront_u256 = Some(U256::from(upfront));
-
-            let commission_amount =
-                div(mul(total_u256, commission_rate_nom), commission_rate_denom).ok_or_else(
-                    || {
-                        StdError::generic_err(format!(
-                    "Cannot calculate total {} * commission_rate_nom {} / commission_rate_denom {}",
-                    total_u256.unwrap(),
-                    commission_rate_nom.unwrap(),
-                    commission_rate_denom.unwrap(),
-                ))
-                    },
-                )?;
-
-            let commission_amount_u128 = commission_amount.low_u128();
-            if upfront >= commission_amount_u128 || commission_amount_u128 == 0 {
-                // take no commission
-                messages.push(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: info.sender.into_string(),
-                    amount: vec![Coin {
-                        denom: DENOM.to_string(),
-                        amount: Uint128::from(total),
-                    }],
-                }));
-                msg = format!("Pay out {} uscrt", total);
-            } else {
-                // subtract upfront fee from commission
-                let commission_amount =
-                    sub(Some(commission_amount), upfront_u256).ok_or_else(|| {
-                        StdError::generic_err(format!(
-                            "Cannot calculate commission_amount {} - upfront {}",
-                            commission_amount,
-                            upfront_u256.unwrap(),
-                        ))
-                    })?;
-
-                let payment_amount = sub(total_u256, Some(commission_amount)).ok_or_else(|| {
-                    StdError::generic_err(format!(
-                        "Cannot calculate total {} - adjusted commission_amount {}",
-                        total_u256.unwrap(),
-                        commission_amount,
-                    ))
-                })?;
-
-                let creator_human_addr = deps.api.addr_humanize(&creator)?;
-                messages.push(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: creator_human_addr.into_string(),
-                    amount: vec![Coin {
-                        denom: DENOM.to_string(),
-                        amount: Uint128::from(payment_amount.low_u128()),
-                    }],
-                }));
-
-                messages.push(CosmosMsg::Bank(BankMsg::Send {
-                    to_address: commission_addr_human.into_string(),
-                    amount: vec![Coin {
-                        denom: DENOM.to_string(),
-                        amount: Uint128::from(commission_amount.low_u128()),
-                    }],
-                }));
-
-                msg = format!(
-                    "Pay out {} uscrt: payment {}, fee {}",
-                    total,
-                    payment_amount,
-                    commission_amount.low_u128()
-                );
-            }
-        }
+        messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: info.sender.into_string(),
+            amount: vec![Coin {
+                denom: DENOM.to_string(),
+                amount: Uint128::from(total),
+            }],
+        }));
+        msg = format!("Pay out {} uscrt", total);
 
         paid_out(deps.storage)?;
         response_status = Success;

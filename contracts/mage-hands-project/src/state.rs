@@ -1,7 +1,6 @@
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{Addr, CanonicalAddr, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, CanonicalAddr, StdError, StdResult, Storage,};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
-use schemars::JsonSchema;
 use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -198,33 +197,6 @@ pub fn get_total(storage: &dyn Storage) -> StdResult<u128> {
     get_bin_data(storage, TOTAL_KEY)
 }
 
-pub fn set_fee(storage: &mut dyn Storage, fee: StoredFee) -> StdResult<()> {
-    set_bin_data(storage, FEE_KEY, &fee)
-}
-
-pub fn get_fee(storage: &dyn Storage) -> StdResult<StoredFee> {
-    get_bin_data(storage, FEE_KEY)
-}
-
-pub fn set_upfront(storage: &mut dyn Storage, upfront: u128) -> StdResult<()> {
-    set_bin_data(storage, UPFRONT_KEY, &upfront)
-}
-
-pub fn get_upfront(storage: &dyn Storage) -> StdResult<u128> {
-    get_bin_data(storage, UPFRONT_KEY)
-}
-
-pub fn set_commission_addr(
-    storage: &mut dyn Storage,
-    commission_addr: &CanonicalAddr,
-) -> StdResult<()> {
-    set_bin_data(storage, COMMISSION_ADDR_KEY, &commission_addr)
-}
-
-pub fn get_commission_addr(storage: &dyn Storage) -> StdResult<CanonicalAddr> {
-    get_bin_data(storage, COMMISSION_ADDR_KEY)
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StoredFunder {
     pub idx: u32,
@@ -349,6 +321,7 @@ pub fn get_funders(
 // Fee
 //
 
+/* 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Fee {
     pub commission_rate_nom: Uint128,
@@ -380,6 +353,7 @@ impl StoredFee {
         Ok(fee)
     }
 }
+*/
 
 pub fn paid_out(storage: &mut dyn Storage) -> StdResult<()> {
     set_bin_data(storage, PAID_OUT_KEY, &true)
