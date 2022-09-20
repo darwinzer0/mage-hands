@@ -15,7 +15,10 @@ pub struct InstantiateMsg {
     // message for people who have contributed money after project is funded
     pub funded_message: Option<String>,
     pub goal: Uint128,
+    // deadline (block height)
     pub deadline: u64,
+    // deadman expiration for funded project (in blocks)
+    pub deadman: u64,
     pub categories: Vec<u16>,
 
     pub entropy: String,
@@ -141,6 +144,7 @@ pub enum QueryAnswer {
         goal: Uint128,
         total: Uint128,
         deadline: u64,
+        deadman: u64,
         title: String,
         subtitle: String,
         description: String,
@@ -153,6 +157,7 @@ pub enum QueryAnswer {
         goal: Uint128,
         total: Uint128,
         deadline: u64,
+        deadman: u64,
         title: String,
         subtitle: String,
         description: String,
@@ -168,6 +173,7 @@ pub enum QueryAnswer {
         goal: Uint128,
         total: Uint128,
         deadline: u64,
+        deadman: u64,
         title: String,
         subtitle: String,
         description: String,

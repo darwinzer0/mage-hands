@@ -15,7 +15,7 @@ use crate::state::{
     read_viewing_key, set_categories, set_creator, set_deadline,
     set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
-    SUCCESSFUL, set_config, get_config,
+    SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -46,6 +46,7 @@ pub fn instantiate(
         ));
     }
     set_deadline(deps.storage, msg.deadline)?;
+    set_deadman(deps.storage, msg.deadman)?;
     set_title(deps.storage, msg.title)?;
     let subtitle = msg.subtitle.unwrap_or_else(|| String::from(""));
     set_subtitle(deps.storage, subtitle)?;
@@ -75,7 +76,7 @@ pub fn instantiate(
 
     let cosmos_msg = register_msg.to_cosmos_msg(msg.source_hash, msg.source_contract.into_string(), None)?;
 
-    let mut resp = Response::new().add_message(cosmos_msg);
+    let resp = Response::new().add_message(cosmos_msg);
     Ok(resp)
 }
 
@@ -307,7 +308,7 @@ fn try_contribute(
 
 fn try_cancel(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
 ) -> StdResult<Response> {
     let mut response_status: ResponseStatus = Failure;
@@ -340,7 +341,7 @@ fn try_cancel(
 
 pub fn try_refund(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
 ) -> StdResult<Response> {
     let response_status;
@@ -348,7 +349,9 @@ pub fn try_refund(
 
     let mut messages = vec![];
     let status = get_status(deps.storage)?;
-    if status == SUCCESSFUL || is_paid_out(deps.storage) {
+    let deadline = get_deadline(deps.storage)?;
+    let deadman = get_deadman(deps.storage)?;
+    if is_paid_out(deps.storage) || (status == SUCCESSFUL && deadline + deadman > env.block.height) {
         response_status = Failure;
         msg = String::from("Cannot receive refund after project successfully funded");
     } else {
@@ -400,21 +403,30 @@ fn try_pay_out(
     let mut messages = vec![];
     let status = get_status(deps.storage)?;
     let deadline = get_deadline(deps.storage)?;
+    let deadman = get_deadman(deps.storage)?;
 
     // time has completed and it is successful
+    //   and deadman time has not elapsed
     if env.block.height > deadline && status == SUCCESSFUL {
-        let total = get_total(deps.storage)?;
-        messages.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: info.sender.into_string(),
-            amount: vec![Coin {
-                denom: DENOM.to_string(),
-                amount: Uint128::from(total),
-            }],
-        }));
-        msg = format!("Pay out {} uscrt", total);
-
-        paid_out(deps.storage)?;
-        response_status = Success;
+        if deadline + deadman < env.block.height {
+            response_status = Failure;
+            msg = String::from(
+                "Project was funded, but the deadman time has elapsed and funding has expired"
+            );
+        } else {
+            let total = get_total(deps.storage)?;
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                to_address: info.sender.into_string(),
+                amount: vec![Coin {
+                    denom: DENOM.to_string(),
+                    amount: Uint128::from(total),
+                }],
+            }));
+            msg = format!("Pay out {} uscrt", total);
+    
+            paid_out(deps.storage)?;
+            response_status = Success;
+        }
     } else {
         if env.block.height > deadline && status == FUNDRAISING {
             set_status(deps.storage, EXPIRED)?;
@@ -499,7 +511,7 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
     let total = Uint128::from(total);
 
     let deadline = get_deadline(deps.storage)?;
-    let deadline = deadline;
+    let deadman = get_deadman(deps.storage)?;
 
     let title = get_title(deps.storage);
 
@@ -516,6 +528,7 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
         goal,
         total,
         deadline,
+        deadman,
         title,
         subtitle,
         description,
@@ -553,6 +566,7 @@ fn query_status_auth(
     let total = Uint128::from(total);
 
     let deadline = get_deadline(deps.storage)?;
+    let deadman = get_deadman(deps.storage)?;
 
     let title = get_title(deps.storage);
     let subtitle = get_subtitle(deps.storage);
@@ -589,6 +603,7 @@ fn query_status_auth(
         goal,
         total,
         deadline,
+        deadman,
         title,
         subtitle,
         description,
@@ -638,6 +653,7 @@ fn query_status_with_permit(
     let total = Uint128::from(total);
 
     let deadline = get_deadline(deps.storage)?;
+    let deadman = get_deadman(deps.storage)?;
 
     let title = get_title(deps.storage);
     let subtitle = get_subtitle(deps.storage);
@@ -675,6 +691,7 @@ fn query_status_with_permit(
         goal,
         total,
         deadline,
+        deadman,
         title,
         subtitle,
         description,
