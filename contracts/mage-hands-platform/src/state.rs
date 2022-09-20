@@ -1,10 +1,9 @@
 use crate::msg::ContractInfo;
 use cosmwasm_std::{
-    Api, CanonicalAddr, HumanAddr, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
+    Api, CanonicalAddr, Addr, StdError, StdResult, Storage, Uint128,
 };
-use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use schemars::JsonSchema;
-use secret_toolkit::storage::{AppendStore, AppendStoreMut};
+use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
@@ -12,31 +11,25 @@ use std::any::type_name;
 pub static CONFIG_KEY: &[u8] = b"conf";
 pub static CREATING_PROJECT_FLAG_KEY: &[u8] = b"flag";
 pub const CREATING_PROJECT: bool = true;
-pub static PROJECTS_PREFIX: &[u8] = b"proj";
+pub static PROJECTS_STORE: AppendStore<StoredContractInfo> = AppendStore::new(b"proj");
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
     pub owner: CanonicalAddr,
-    pub default_upfront: u128,
-    pub default_fee: StoredFee,
     pub project_contract_code_id: u64,
     pub project_contract_code_hash: Vec<u8>,
     pub contract_address: CanonicalAddr,
 }
 
-pub fn set_config<S: Storage>(
-    storage: &mut S,
+pub fn set_config(
+    storage: &mut dyn Storage,
     owner: CanonicalAddr,
-    default_upfront: u128,
-    default_fee: StoredFee,
     project_contract_code_id: u64,
     project_contract_code_hash: Vec<u8>,
     contract_address: CanonicalAddr,
 ) -> StdResult<()> {
     let config = Config {
         owner,
-        default_upfront,
-        default_fee,
         project_contract_code_id,
         project_contract_code_hash,
         contract_address,
@@ -44,21 +37,21 @@ pub fn set_config<S: Storage>(
     set_bin_data(storage, CONFIG_KEY, &config)
 }
 
-pub fn get_config<S: ReadonlyStorage>(storage: &S) -> StdResult<Config> {
+pub fn get_config(storage: &dyn Storage) -> StdResult<Config> {
     get_bin_data(storage, CONFIG_KEY)
 }
 
-pub fn set_creating_project<S: Storage>(storage: &mut S, creating_project: bool) -> StdResult<()> {
+pub fn set_creating_project(storage: &mut dyn Storage, creating_project: bool) -> StdResult<()> {
     set_bin_data(storage, CREATING_PROJECT_FLAG_KEY, &creating_project)
 }
 
-pub fn is_creating_project<S: ReadonlyStorage>(storage: &S) -> bool {
+pub fn is_creating_project(storage: &dyn Storage) -> bool {
     get_bin_data(storage, CREATING_PROJECT_FLAG_KEY).unwrap_or_else(|_| false)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProjectContract {
-    pub address: HumanAddr,
+    pub address: Addr,
     pub contract_hash: String,
 }
 
@@ -78,53 +71,33 @@ impl StoredContractInfo {
     /// # Arguments
     ///
     /// * `api` - a reference to the Api used to convert human and canonical addresses
-    pub fn to_humanized<A: Api>(&self, api: &A) -> StdResult<ContractInfo> {
+    pub fn to_humanized(&self, api: &dyn Api) -> StdResult<ContractInfo> {
         let info = ContractInfo {
-            address: api.human_address(&self.address)?,
+            address: api.addr_humanize(&self.address)?,
             code_hash: self.code_hash.clone(),
         };
         Ok(info)
     }
 }
 
-pub fn project_count<S: ReadonlyStorage>(storage: &S) -> StdResult<u32> {
-    let store = ReadonlyPrefixedStorage::new(&PROJECTS_PREFIX, storage);
-
-    // Try to access the storage of contract addresses and get length
-    // If it doesn't exist yet, return 0.
-    if let Some(result) = AppendStore::<StoredContractInfo, _>::attach(&store) {
-        return Ok(result?.len());
-    } else {
-        return Ok(0);
-    };
+pub fn project_count(storage: &dyn Storage) -> StdResult<u32> {
+    return PROJECTS_STORE.get_len(storage);
 }
 
-pub fn add_project<S: Storage>(storage: &mut S, project: StoredContractInfo) -> StdResult<u32> {
-    let mut store = PrefixedStorage::new(&PROJECTS_PREFIX, storage);
-    let mut store = AppendStoreMut::<StoredContractInfo, _>::attach_or_create(&mut store)?;
-    store.push(&project)?;
-    Ok(store.len() - 1)
+pub fn add_project(storage: &mut dyn Storage, project: StoredContractInfo) -> StdResult<u32> {
+    PROJECTS_STORE.push(storage, &project)?;
+    project_count(storage).map(|len| len-1)
 }
 
-pub fn get_projects<S: ReadonlyStorage>(
-    storage: &S,
+pub fn get_projects(
+    storage: &dyn Storage,
     page: u32,
     page_size: u32,
 ) -> StdResult<Vec<StoredContractInfo>> {
-    let store = ReadonlyPrefixedStorage::new(&PROJECTS_PREFIX, storage);
-
-    // Try to access the storage of contract addresses.
-    // If it doesn't exist yet, return an empty list.
-    let store = if let Some(result) = AppendStore::<StoredContractInfo, _>::attach(&store) {
-        result?
-    } else {
-        return Ok(vec![]);
-    };
-
     // Take `page_size` projects starting from the latest project, potentially skipping `page * page_size`
     // projects from the start.
-    let projects = store
-        .iter()
+    let projects = PROJECTS_STORE
+        .iter(storage)?
         .rev()
         .skip((page * page_size) as _)
         .take(page_size as _)
@@ -132,23 +105,11 @@ pub fn get_projects<S: ReadonlyStorage>(
     projects
 }
 
-pub fn get_projects_count<S: ReadonlyStorage>(storage: &S) -> StdResult<u32> {
-    let store = ReadonlyPrefixedStorage::new(&PROJECTS_PREFIX, storage);
-
-    // Try to access the storage of contract addresses and return length.
-    // If it doesn't exist yet, return 0.
-    if let Some(result) = AppendStore::<StoredContractInfo, _>::attach(&store) {
-        return Ok(result?.len());
-    } else {
-        return Ok(0_u32);
-    };
-}
-
 //
 // Fee
 //
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Fee {
     pub commission_rate_nom: Uint128,
     pub commission_rate_denom: Uint128,
@@ -173,8 +134,8 @@ pub struct StoredFee {
 impl StoredFee {
     pub fn into_humanized(self) -> StdResult<Fee> {
         let fee = Fee {
-            commission_rate_nom: Uint128(self.commission_rate_nom),
-            commission_rate_denom: Uint128(self.commission_rate_denom),
+            commission_rate_nom: Uint128::from(self.commission_rate_nom),
+            commission_rate_denom: Uint128::from(self.commission_rate_denom),
         };
         Ok(fee)
     }
@@ -184,8 +145,8 @@ impl StoredFee {
 // Bin data storage setters and getters
 //
 
-pub fn set_bin_data<T: Serialize, S: Storage>(
-    storage: &mut S,
+pub fn set_bin_data<T: Serialize>(
+    storage: &mut dyn Storage,
     key: &[u8],
     data: &T,
 ) -> StdResult<()> {
@@ -195,8 +156,8 @@ pub fn set_bin_data<T: Serialize, S: Storage>(
     Ok(())
 }
 
-pub fn get_bin_data<T: DeserializeOwned, S: ReadonlyStorage>(
-    storage: &S,
+pub fn get_bin_data<T: DeserializeOwned>(
+    storage: &dyn Storage,
     key: &[u8],
 ) -> StdResult<T> {
     let bin_data = storage.get(key);

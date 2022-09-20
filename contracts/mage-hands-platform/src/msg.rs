@@ -1,13 +1,12 @@
-use cosmwasm_std::{HumanAddr, Uint128};
-use schemars::JsonSchema;
+use cosmwasm_std::{Addr, Uint128};
 use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 use secret_toolkit::permit::Permit;
 use crate::state::Fee;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
-    pub owner: Option<HumanAddr>,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct InstantiateMsg {
+    pub owner: Option<Addr>,
     pub default_upfront: Uint128,
     pub default_fee: Fee,
 
@@ -15,9 +14,9 @@ pub struct InitMsg {
     pub project_contract_code_hash: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ProjectInitMsg {
-    pub creator: HumanAddr,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ProjectInstantiateMsg {
+    pub creator: Addr,
     pub title: String,
     pub subtitle: Option<String>,
     pub description: String,
@@ -30,25 +29,25 @@ pub struct ProjectInitMsg {
     pub categories: Vec<u16>,
 
     // commission
-    pub commission_addr: HumanAddr,
-    pub upfront: Uint128,
-    pub fee: Fee,
+    // pub commission_addr: Addr,
+    // pub upfront: Uint128,
+    // pub fee: Fee,
 
     pub entropy: String,
 
-    pub source_contract: HumanAddr,
+    pub source_contract: Addr,
     pub source_hash: String,
 
     pub padding: Option<String>,
 }
 
-impl InitCallback for ProjectInitMsg {
+impl InitCallback for ProjectInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub enum ExecuteMsg {
     // create a new project
     Create {
         title: String,
@@ -64,7 +63,7 @@ pub enum HandleMsg {
     },
     // owner only
     Config {
-        owner: Option<HumanAddr>,
+        owner: Option<Addr>,
         default_upfront: Option<Uint128>,
         default_fee: Option<Fee>,
         project_contract_code_id: Option<u64>,
@@ -73,7 +72,7 @@ pub enum HandleMsg {
     },
     // register a project contract
     Register {
-        contract_addr: HumanAddr,
+        contract_addr: Addr,
         contract_code_hash: String,
     },
 
@@ -84,16 +83,16 @@ pub enum HandleMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseStatus {
     Success,
     Failure,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleAnswer {
+pub enum ExecuteAnswer {
     Create {
         status: ResponseStatus,
         msg: String,
@@ -106,7 +105,7 @@ pub enum HandleAnswer {
         status: ResponseStatus,
         msg: String,
         project_id: u32,
-        project_address: HumanAddr,
+        project_address: Addr,
         project_code_hash: String,
     },
     // Permit
@@ -115,7 +114,7 @@ pub enum HandleAnswer {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // gets a paginated list of projects
@@ -126,7 +125,7 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     Projects {
@@ -134,17 +133,17 @@ pub enum QueryAnswer {
         count: u32,
     },
     ValidatePermit {
-        address: HumanAddr,
+        address: Addr,
     },
 }
 
 /// code hash and address of a contract
-#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct ContractInfo {
     /// contract's code hash string
     pub code_hash: String,
     /// contract's address
-    pub address: HumanAddr,
+    pub address: Addr,
 }
 
 // Take a Vec<u8> and pad it up to a multiple of `block_size`, using spaces at the end.
