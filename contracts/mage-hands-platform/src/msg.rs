@@ -12,6 +12,9 @@ pub struct InstantiateMsg {
 
     pub project_contract_code_id: u64,
     pub project_contract_code_hash: String,
+
+    // deadman timeout for successful projects
+    pub deadman: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -26,12 +29,8 @@ pub struct ProjectInstantiateMsg {
     pub funded_message: Option<String>,
     pub goal: Uint128,
     pub deadline: u64,
+    pub deadman: u64,
     pub categories: Vec<u16>,
-
-    // commission
-    // pub commission_addr: Addr,
-    // pub upfront: Uint128,
-    // pub fee: Fee,
 
     pub entropy: String,
 
@@ -68,6 +67,7 @@ pub enum ExecuteMsg {
         default_fee: Option<Fee>,
         project_contract_code_id: Option<u64>,
         project_contract_code_hash: Option<String>,
+        deadman: Option<u64>,
         padding: Option<String>,
     },
     // register a project contract

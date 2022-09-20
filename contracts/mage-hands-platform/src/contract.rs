@@ -15,6 +15,8 @@ use secret_toolkit::permit::{ validate, RevokedPermits,Permit, };
 const DENOM: &str = "uscrt";
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
+// 6 sec / block ~= 60 days
+pub const DEFAULT_DEADMAN: u64 = 518400;
 
 #[entry_point]
 pub fn instantiate(
@@ -36,6 +38,7 @@ pub fn instantiate(
         msg.project_contract_code_id,
         msg.project_contract_code_hash.as_bytes().to_vec(),
         deps.api.addr_canonicalize(env.contract.address.as_str())?,
+        msg.deadman.unwrap_or(DEFAULT_DEADMAN),
     )?;
 
     Ok(Response::new().add_attribute("init", "😎"))
@@ -88,6 +91,7 @@ pub fn execute(
             owner,
             project_contract_code_id,
             project_contract_code_hash,
+            deadman,
             ..
         } => try_config(
             deps,
@@ -96,6 +100,7 @@ pub fn execute(
             owner,
             project_contract_code_id,
             project_contract_code_hash,
+            deadman,
         ),
         ExecuteMsg::Register {
             contract_addr,
@@ -141,6 +146,7 @@ pub fn try_create(
             funded_message,
             goal,
             deadline,
+            deadman: config.deadman,
             categories,
             entropy,
             source_contract: env.contract.address.clone(),
@@ -223,6 +229,7 @@ fn try_config(
     owner: Option<Addr>,
     project_contract_code_id: Option<u64>,
     project_contract_code_hash: Option<String>,
+    deadman: Option<u64>,
 ) -> StdResult<Response> {
     let status;
     let msg;
@@ -246,12 +253,17 @@ fn try_config(
         config.project_contract_code_hash = project_contract_code_hash.unwrap().as_bytes().to_vec();
     }
 
+    if deadman.is_some() {
+        config.deadman = deadman.unwrap();
+    }
+
     set_config(
         deps.storage,
         config.owner.clone(),
         config.project_contract_code_id.clone(),
         config.project_contract_code_hash.clone(),
         config.contract_address,
+        config.deadman,
     )?;
 
     status = Success;

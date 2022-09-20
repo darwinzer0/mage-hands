@@ -19,6 +19,7 @@ pub struct Config {
     pub project_contract_code_id: u64,
     pub project_contract_code_hash: Vec<u8>,
     pub contract_address: CanonicalAddr,
+    pub deadman: u64,
 }
 
 pub fn set_config(
@@ -27,12 +28,14 @@ pub fn set_config(
     project_contract_code_id: u64,
     project_contract_code_hash: Vec<u8>,
     contract_address: CanonicalAddr,
+    deadman: u64,
 ) -> StdResult<()> {
     let config = Config {
         owner,
         project_contract_code_id,
         project_contract_code_hash,
         contract_address,
+        deadman,
     };
     set_bin_data(storage, CONFIG_KEY, &config)
 }
