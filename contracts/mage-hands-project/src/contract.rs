@@ -63,14 +63,6 @@ pub fn instantiate(
 
     set_categories(deps.storage, msg.categories)?;
 
-    //let stored_fee = msg.fee.into_stored()?;
-    //set_fee(&mut deps.storage, stored_fee)?;
-    //set_upfront(&mut deps.storage, msg.upfront.u128())?;
-    //set_commission_addr(
-    //    &mut deps.storage,
-    //    &deps.api.canonical_address(&msg.commission_addr)?,
-    //)?;
-
     set_status(deps.storage, FUNDRAISING)?;
     set_total(deps.storage, 0_u128)?;
 
