@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, BankMsg, Binary, Coin, CosmosMsg, Env, Addr,
+    entry_point, to_binary, Binary, Env, Addr,
     Response, StdError, StdResult, Uint128, DepsMut, Deps, MessageInfo,
 };
 
@@ -19,11 +19,15 @@ use crate::state::{
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
-use secret_toolkit::crypto::sha_256;
-use secret_toolkit::permit::{Permit,};
-use secret_toolkit::utils::{HandleCallback, Query};
+use secret_toolkit::{
+    crypto::sha_256,
+    permit::{Permit,},
+    snip20::{
+        register_receive_msg, transfer_msg, balance_query, set_viewing_key_msg,
+    },
+    utils::{HandleCallback, Query},
+};
 
-const DENOM: &str = "uscrt";
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 
@@ -69,14 +73,39 @@ pub fn instantiate(
 
     let register_msg = PlatformExecuteMsg::Register {
         contract_addr: env.contract.address,
-        contract_code_hash: env.contract.code_hash,
+        contract_code_hash: env.contract.code_hash.clone(),
     };
 
-    set_config(deps.storage, msg.source_contract.clone(), msg.source_hash.clone())?;
+    set_config(
+        deps.storage, 
+        deps.api.addr_canonicalize(msg.source_contract.as_str())?, 
+        msg.source_hash.clone(),
+        deps.api.addr_canonicalize(msg.snip20_contract.as_str())?,
+        msg.snip20_hash.clone(),
+    )?;
 
     let cosmos_msg = register_msg.to_cosmos_msg(msg.source_hash, msg.source_contract.into_string(), None)?;
+    let snip20_register_receive_msg = register_receive_msg(
+        env.contract.code_hash, 
+        None, 
+        256, 
+        msg.snip20_hash.clone(), 
+        msg.snip20_contract.clone().into_string(),
+    )?;
 
-    let resp = Response::new().add_message(cosmos_msg);
+    let viewing_key = base64::encode(&prng_seed);
+    let snip20_set_viewing_key_msg = set_viewing_key_msg(
+        viewing_key.clone(),
+        None,
+        256,
+        msg.snip20_hash, 
+        msg.snip20_contract.into_string(),
+    )?;
+
+    let resp = Response::new()
+        .add_message(cosmos_msg)
+        .add_message(snip20_register_receive_msg)
+        .add_message(snip20_set_viewing_key_msg);
     Ok(resp)
 }
 
@@ -108,9 +137,15 @@ pub fn execute(
             categories,
         ),
         ExecuteMsg::Cancel { .. } => try_cancel(deps, env, info),
-        ExecuteMsg::Contribute {
-            anonymous, entropy, ..
-        } => try_contribute(deps, env, info, anonymous, entropy),
+        //ExecuteMsg::Contribute {
+        //    anonymous, entropy, ..
+        //} => try_contribute(deps, env, info, anonymous, entropy),
+        ExecuteMsg::Receive {
+            sender,
+            from, 
+            amount,
+            msg,
+        } => try_receive(deps, env, info, sender, from, amount, msg),
         ExecuteMsg::Refund { .. } => try_refund(deps, env, info),
         ExecuteMsg::PayOut { .. } => try_pay_out(deps, env, info),
         ExecuteMsg::GenerateViewingKey { entropy, .. } => {
@@ -227,6 +262,98 @@ fn try_change_text(
     Ok(resp)
 }
 
+fn try_receive(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    sender: Addr,
+    from: Addr,
+    amount: Uint128,
+    msg: Option<Binary>,
+) -> StdResult<Response> {
+    let status;
+    let message;
+
+    let token_address = deps.api.addr_canonicalize(&info.sender.as_str())?;
+    let config = get_config(deps.storage)?;
+    if token_address != config.snip20_contract {
+        return Err(StdError::generic_err("Sender is incorrect SNIP-20 contract"));
+    }
+
+    let anonymous = false;
+    /* 
+    if let Some(bin_msg) = msg {
+        match from_binary(&bin_msg)? {
+            ExecuteReceiveMsg::ReceiveContribution {
+                anonymous
+            } => {
+                anonymous = anonymous
+            }
+        }
+    }
+    */
+
+    let project_status = get_status(deps.storage)?;
+    let deadline = get_deadline(deps.storage)?;
+
+    if project_status == EXPIRED || is_paid_out(deps.storage) {
+        //TODO: change to stderror?
+
+        status = Failure;
+        message = String::from("Project is not accepting contributions")
+    } else if env.block.height > deadline {
+        if project_status == FUNDRAISING {
+            set_status(deps.storage, EXPIRED)?;
+        }
+        status = Failure;
+        message = String::from("Project is not accepting contributions")
+    } else {
+        let amount = amount.u128();
+
+        if amount == 0 {
+            status = Failure;
+            message = String::from("No coins sent");
+        } else {
+            let total = get_total(deps.storage)?;
+            let sender_address_raw = deps.api.addr_canonicalize(&info.sender.as_str())?;
+
+            add_funds(deps.storage, &sender_address_raw, anonymous, amount)?;
+
+            let goal = get_goal(deps.storage)?;
+
+            if total + amount >= goal {
+                set_status(deps.storage, SUCCESSFUL)?;
+            }
+
+            status = Success;
+            message = format!("Successfully contributed {}", amount);
+        }
+    }
+
+    let mut messages = vec![];
+    if status == Failure {
+        // return coins to sender
+        let snip20_transfer_msg = transfer_msg(
+            from.into_string(), 
+            amount, 
+            None, 
+            None, 
+            256, 
+            config.snip20_hash, 
+            deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
+        )?;
+        messages.push(snip20_transfer_msg);
+    }
+
+    let mut resp = Response::new().add_messages(messages);
+    resp.data = Some(to_binary(&ExecuteAnswer::Receive {
+        status,
+        msg: message,
+    })?);
+    Ok(resp)
+}
+
+/*
 fn try_contribute(
     deps: DepsMut,
     env: Env,
@@ -305,6 +432,7 @@ fn try_contribute(
     })?);
     Ok(resp)
 }
+*/
 
 fn try_cancel(
     deps: DepsMut,
@@ -362,15 +490,19 @@ pub fn try_refund(
             response_status = Failure;
             msg = String::from("No funds to refund");
         } else {
-            messages.push(CosmosMsg::Bank(BankMsg::Send {
-                to_address: info.sender.into_string(),
-                amount: vec![Coin {
-                    denom: DENOM.to_string(),
-                    amount: Uint128::from(refund_amount),
-                }],
-            }));
+            let config = get_config(deps.storage)?;
+            let snip20_transfer_msg = transfer_msg(
+                info.sender.into_string(), 
+                Uint128::from(refund_amount), 
+                None, 
+                None, 
+                256, 
+                config.snip20_hash, 
+                deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
+            )?;
+            messages.push(snip20_transfer_msg);
             response_status = Success;
-            msg = format!("{} uscrt refunded", refund_amount);
+            msg = format!("{} refunded", refund_amount);
         }
     }
 
@@ -415,13 +547,17 @@ fn try_pay_out(
             );
         } else {
             let total = get_total(deps.storage)?;
-            messages.push(CosmosMsg::Bank(BankMsg::Send {
-                to_address: info.sender.into_string(),
-                amount: vec![Coin {
-                    denom: DENOM.to_string(),
-                    amount: Uint128::from(total),
-                }],
-            }));
+            let config = get_config(deps.storage)?;
+            let snip20_transfer_msg = transfer_msg(
+                info.sender.into_string(), 
+                Uint128::from(total), 
+                None, 
+                None, 
+                256, 
+                config.snip20_hash, 
+                deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
+            )?;
+            messages.push(snip20_transfer_msg);
             msg = format!("Pay out {} uscrt", total);
     
             paid_out(deps.storage)?;
@@ -623,7 +759,7 @@ fn query_status_with_permit(
     let validate_permit_response: ValidatePermitResponse = get_validate_permit.query(
         deps.querier,
         config.platform_hash.to_string(),
-        config.platform_contract.into_string(),
+        deps.api.addr_humanize(&config.platform_contract)?.into_string(),
     )?;
     let address = validate_permit_response.validate_permit.address;
 

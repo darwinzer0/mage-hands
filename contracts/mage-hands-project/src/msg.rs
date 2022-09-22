@@ -1,5 +1,5 @@
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::{Addr, Uint128, Binary, };
 use secret_toolkit::permit::Permit;
 use secret_toolkit::utils::{HandleCallback, Query};
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,10 @@ pub struct InstantiateMsg {
 
     pub source_contract: Addr,
     pub source_hash: String,
+
+    // contract info for snip20
+    pub snip20_contract: Addr,
+    pub snip20_hash: String,
 
     pub padding: Option<String>,
 }
@@ -57,10 +61,17 @@ pub enum ExecuteMsg {
     },
     // project funder: contribute funds to this project
     // returns a viewing key
-    Contribute {
-        anonymous: Option<bool>,
-        entropy: String,
-        padding: Option<String>,
+    //Contribute {
+    //    anonymous: Option<bool>,
+    //    entropy: String,
+    //    padding: Option<String>,
+    //},
+    // Receives from a SNIP-20, project funder: contribute funds to this project
+    Receive {
+        sender: Addr,
+        from: Addr,
+        amount: Uint128,
+        msg: Option<Binary>,
     },
     // project funder: withdraw funds that you have pledged to this project (state must be FUNDRAISING or EXPIRED)
     Refund {
@@ -102,6 +113,10 @@ pub enum ExecuteAnswer {
         status: ResponseStatus,
         msg: String,
         key: Option<ViewingKey>,
+    },
+    Receive {
+        status: ResponseStatus,
+        msg: String,
     },
     Refund {
         status: ResponseStatus,

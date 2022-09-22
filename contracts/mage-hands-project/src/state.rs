@@ -23,9 +23,6 @@ pub static DEADLINE_KEY: &[u8] = b"dead";
 pub static DEADMAN_KEY: &[u8] = b"dman";
 pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static TOTAL_KEY: &[u8] = b"totl";
-pub static FEE_KEY: &[u8] = b"feek";
-pub static UPFRONT_KEY: &[u8] = b"upfr";
-pub static COMMISSION_ADDR_KEY: &[u8] = b"comm";
 
 //pub static FUNDER_LIST_PREFIX: &[u8] = b"fund";
 pub static FUNDER_AMOUNT_PREFIX: &[u8] = b"amnt";
@@ -39,18 +36,24 @@ pub static PAID_OUT_KEY: &[u8] = b"pout";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
-    pub platform_contract: Addr,
+    pub platform_contract: CanonicalAddr,
     pub platform_hash: String,
+    pub snip20_contract: CanonicalAddr,
+    pub snip20_hash: String,
 }
 
 pub fn set_config(
     storage: &mut dyn Storage,
-    platform_contract: Addr,
+    platform_contract: CanonicalAddr,
     platform_hash: String,
+    snip20_contract: CanonicalAddr,
+    snip20_hash: String,
 ) -> StdResult<()> {
     let config = Config {
         platform_contract,
-        platform_hash
+        platform_hash,
+        snip20_contract,
+        snip20_hash,
     };
     set_bin_data(storage, CONFIG_KEY, &config)
 }
@@ -325,44 +328,6 @@ pub fn get_funders(
         .collect();
     funders
 }
-
-//
-// Fee
-//
-
-/* 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Fee {
-    pub commission_rate_nom: Uint128,
-    pub commission_rate_denom: Uint128,
-}
-
-impl Fee {
-    pub fn into_stored(self) -> StdResult<StoredFee> {
-        let fee = StoredFee {
-            commission_rate_nom: self.commission_rate_nom.u128(),
-            commission_rate_denom: self.commission_rate_denom.u128(),
-        };
-        Ok(fee)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct StoredFee {
-    pub commission_rate_nom: u128,
-    pub commission_rate_denom: u128,
-}
-
-impl StoredFee {
-    pub fn into_humanized(self) -> StdResult<Fee> {
-        let fee = Fee {
-            commission_rate_nom: Uint128::from(self.commission_rate_nom),
-            commission_rate_denom: Uint128::from(self.commission_rate_denom),
-        };
-        Ok(fee)
-    }
-}
-*/
 
 pub fn paid_out(storage: &mut dyn Storage) -> StdResult<()> {
     set_bin_data(storage, PAID_OUT_KEY, &true)
