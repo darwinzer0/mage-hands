@@ -6,17 +6,16 @@ use crate::state::{
     set_config, set_creating_project, Config, StoredContractInfo,
 };
 use cosmwasm_std::{
-    entry_point, to_binary, BankMsg, Binary, Coin, CosmosMsg, Env, DepsMut, MessageInfo, Addr,
+    entry_point, to_binary, Binary, Env, DepsMut, MessageInfo, Addr,
     Response, StdError, StdResult, Deps, Uint128, SubMsg,
 };
 use secret_toolkit::utils::{ InitCallback, };
 use secret_toolkit::permit::{ validate, RevokedPermits,Permit, };
 
-const DENOM: &str = "uscrt";
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
-// 6 sec / block ~= 60 days
-pub const DEFAULT_DEADMAN: u64 = 518400;
+// 6 sec / block ~= 30 days
+pub const DEFAULT_DEADMAN: u64 = 259200;
 
 #[entry_point]
 pub fn instantiate(
@@ -71,6 +70,8 @@ pub fn execute(
             goal,
             deadline,
             categories,
+            snip20_contract,
+            snip20_hash,
             entropy,
             ..
         } => try_create(
@@ -85,6 +86,8 @@ pub fn execute(
             goal,
             deadline,
             categories,
+            snip20_contract,
+            snip20_hash,
             entropy,
         ),
         ExecuteMsg::Config {
@@ -123,63 +126,53 @@ pub fn try_create(
     goal: Uint128,
     deadline: u64,
     categories: Vec<u16>,
+    snip20_contract: Addr,
+    snip20_hash: String,
     entropy: String,
 ) -> StdResult<Response> {
     let msg;
 
-    let sent_coins = info.funds.clone();
     let config: Config = get_config(deps.storage)?;
     let mut messages = vec![];
 
-    if sent_coins[0].denom != DENOM {
-        // sent wrong kind of coins
-        return Err(StdError::generic_err("Incorrect coin"));
-    } else {
-        set_creating_project(deps.storage, true)?;
+    set_creating_project(deps.storage, true)?;
 
-        let project_init_msg = ProjectInstantiateMsg {
-            creator: info.sender,
-            title,
-            subtitle,
-            description,
-            pledged_message,
-            funded_message,
-            goal,
-            deadline,
-            deadman: config.deadman,
-            categories,
-            entropy,
-            source_contract: env.contract.address.clone(),
-            source_hash: env.contract.code_hash,
-            padding: None,
-        };
-        let label = format!(
-            "{}-Mage-Hands-Project-{}-{}",
-            &env.contract.address.clone(),
-            project_count(deps.storage)?,
-            &base64::encode(env.block.time.to_string()),
-        );
+    let project_init_msg = ProjectInstantiateMsg {
+        creator: info.sender,
+        title,
+        subtitle,
+        description,
+        pledged_message,
+        funded_message,
+        goal,
+        deadline,
+        deadman: config.deadman,
+        categories,
+        entropy,
+        source_contract: env.contract.address.clone(),
+        source_hash: env.contract.code_hash,
+        snip20_contract,
+        snip20_hash,
+        padding: None,
+    };
+    let label = format!(
+        "{}-Mage-Hands-Project-{}-{}",
+        &env.contract.address.clone(),
+        project_count(deps.storage)?,
+        &base64::encode(env.block.time.to_string()),
+    );
 
-        let config: Config = get_config(deps.storage)?;
+    let config: Config = get_config(deps.storage)?;
 
-        let cosmos_msg = SubMsg::new(project_init_msg.to_cosmos_msg(
-            label.clone(),
-            config.project_contract_code_id,
-            String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
-            None,
-        )?);
-        messages.push(cosmos_msg);
+    let cosmos_msg = SubMsg::new(project_init_msg.to_cosmos_msg(
+        label.clone(),
+        config.project_contract_code_id,
+        String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
+        None,
+    )?);
+    messages.push(cosmos_msg);
 
-        messages.push(SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: deps.api.addr_humanize(&config.owner)?.into_string(),
-            amount: vec![Coin {
-                denom: DENOM.to_string(),
-                amount: sent_coins[0].amount,
-            }],
-        })));
-
-        msg = format!("Created project contract {}", label);
-    }
+    msg = format!("Created project contract {}", label);
 
     let mut resp = Response::default();
     resp.messages = messages;

@@ -1,8 +1,7 @@
 use crate::msg::ContractInfo;
 use cosmwasm_std::{
-    Api, CanonicalAddr, Addr, StdError, StdResult, Storage, Uint128,
+    Api, CanonicalAddr, Addr, StdError, StdResult, Storage,
 };
-use schemars::JsonSchema;
 use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -106,42 +105,6 @@ pub fn get_projects(
         .take(page_size as _)
         .collect();
     projects
-}
-
-//
-// Fee
-//
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Fee {
-    pub commission_rate_nom: Uint128,
-    pub commission_rate_denom: Uint128,
-}
-
-impl Fee {
-    pub fn into_stored(self) -> StdResult<StoredFee> {
-        let fee = StoredFee {
-            commission_rate_nom: self.commission_rate_nom.u128(),
-            commission_rate_denom: self.commission_rate_denom.u128(),
-        };
-        Ok(fee)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct StoredFee {
-    pub commission_rate_nom: u128,
-    pub commission_rate_denom: u128,
-}
-
-impl StoredFee {
-    pub fn into_humanized(self) -> StdResult<Fee> {
-        let fee = Fee {
-            commission_rate_nom: Uint128::from(self.commission_rate_nom),
-            commission_rate_denom: Uint128::from(self.commission_rate_denom),
-        };
-        Ok(fee)
-    }
 }
 
 //

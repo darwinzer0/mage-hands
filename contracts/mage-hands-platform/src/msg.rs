@@ -2,13 +2,10 @@ use cosmwasm_std::{Addr, Uint128};
 use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 use secret_toolkit::permit::Permit;
-use crate::state::Fee;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct InstantiateMsg {
     pub owner: Option<Addr>,
-    pub default_upfront: Uint128,
-    pub default_fee: Fee,
 
     pub project_contract_code_id: u64,
     pub project_contract_code_hash: String,
@@ -37,6 +34,9 @@ pub struct ProjectInstantiateMsg {
     pub source_contract: Addr,
     pub source_hash: String,
 
+    pub snip20_contract: Addr,
+    pub snip20_hash: String,
+
     pub padding: Option<String>,
 }
 
@@ -58,13 +58,13 @@ pub enum ExecuteMsg {
         deadline: u64,
         categories: Vec<u16>,
         entropy: String, // used to set up prng in project contract
+        snip20_contract: Addr,
+        snip20_hash: String,
         padding: Option<String>,
     },
     // owner only
     Config {
         owner: Option<Addr>,
-        default_upfront: Option<Uint128>,
-        default_fee: Option<Fee>,
         project_contract_code_id: Option<u64>,
         project_contract_code_hash: Option<String>,
         deadman: Option<u64>,
