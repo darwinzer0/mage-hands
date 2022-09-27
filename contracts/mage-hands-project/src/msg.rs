@@ -59,13 +59,6 @@ pub enum ExecuteMsg {
         categories: Option<Vec<u16>>,
         padding: Option<String>,
     },
-    // project funder: contribute funds to this project
-    // returns a viewing key
-    //Contribute {
-    //    anonymous: Option<bool>,
-    //    entropy: String,
-    //    padding: Option<String>,
-    //},
     // Receives from a SNIP-20, project funder: contribute funds to this project
     Receive {
         sender: Addr,
@@ -108,11 +101,6 @@ pub enum ExecuteAnswer {
     Cancel {
         status: ResponseStatus,
         msg: String,
-    },
-    Contribute {
-        status: ResponseStatus,
-        msg: String,
-        key: Option<ViewingKey>,
     },
     Receive {
         status: ResponseStatus,
