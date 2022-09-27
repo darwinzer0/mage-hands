@@ -78,6 +78,10 @@ pub enum ExecuteMsg {
     PayOut {
         padding: Option<String>,
     },
+    // comment on the project
+    Comment {
+        comment: String,
+    },
     GenerateViewingKey {
         entropy: String,
         padding: Option<String>,
@@ -114,6 +118,10 @@ pub enum ExecuteAnswer {
         status: ResponseStatus,
         msg: String,
     },
+    Comment {
+        status: ResponseStatus,
+        msg: String,
+    },
     GenerateViewingKey {
         key: ViewingKey,
     },
@@ -126,6 +134,7 @@ pub enum QueryMsg {
     Status {},
     StatusAuth { address: Addr, key: String },
     StatusWithPermit { permit: Permit },
+    Comments { page: u32, page_size: u32 },
 }
 
 impl QueryMsg {
@@ -184,6 +193,9 @@ pub enum QueryAnswer {
         pledged_message: Option<String>,
         funded_message: Option<String>,
         contribution: Option<Uint128>,
+    },
+    Comments {
+        comments: Vec<String>,
     },
 }
 

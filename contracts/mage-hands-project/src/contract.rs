@@ -16,6 +16,7 @@ use crate::state::{
     set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
+    push_comment, get_comments,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -145,6 +146,7 @@ pub fn execute(
         } => try_receive(deps, env, info, sender, from, amount, msg),
         ExecuteMsg::Refund { .. } => try_refund(deps, env, info),
         ExecuteMsg::PayOut { .. } => try_pay_out(deps, env, info),
+        ExecuteMsg::Comment { comment } => try_comment(deps, env, info, comment),
         ExecuteMsg::GenerateViewingKey { entropy, .. } => {
             try_generate_viewing_key(deps, env, info, entropy)
         }
@@ -578,6 +580,35 @@ fn try_pay_out(
     Ok(resp)
 }
 
+pub fn try_comment(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    comment: String,
+) -> StdResult<Response> {
+    let mut response_status = Failure;
+    let msg;
+
+    let status = get_status(deps.storage)?;
+
+    if status == EXPIRED {
+        msg = String::from("Cannot comment on an expired project");
+    } else if status == SUCCESSFUL || is_paid_out(deps.storage) {
+        msg = String::from("Cannot comment on a funded project");
+    } else {
+        push_comment(deps.storage, comment)?;
+        msg = String::from("Comment added");
+        response_status = Success;
+    }
+
+    let mut resp = Response::default();
+    resp.data = Some(to_binary(&ExecuteAnswer::Cancel {
+        status: response_status,
+        msg,
+    })?);
+    Ok(resp)
+}
+
 #[entry_point]
 pub fn query(
     deps: Deps, 
@@ -587,6 +618,7 @@ pub fn query(
     match msg {
         QueryMsg::Status {} => query_status(deps),
         QueryMsg::StatusWithPermit { permit } => query_status_with_permit(deps, &permit),
+        QueryMsg::Comments { page, page_size } => query_comments(deps, page, page_size),
         _ => authenticated_queries(deps, msg),
     }
 }
@@ -616,6 +648,11 @@ fn authenticated_queries(
     }
 
     Err(StdError::generic_err("Unauthorized"))
+}
+
+fn query_comments(deps: Deps, page: u32, page_size: u32) -> StdResult<Binary> {
+    let comments = get_comments(deps.storage, page, page_size)?;
+    to_binary(&QueryAnswer::Comments { comments })
 }
 
 fn query_status(deps: Deps) -> StdResult<Binary> {

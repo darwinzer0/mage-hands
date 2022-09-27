@@ -1,5 +1,5 @@
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{Addr, CanonicalAddr, StdError, StdResult, Storage,};
+use cosmwasm_std::{CanonicalAddr, StdError, StdResult, Storage,};
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
@@ -24,10 +24,8 @@ pub static DEADMAN_KEY: &[u8] = b"dman";
 pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static TOTAL_KEY: &[u8] = b"totl";
 
-//pub static FUNDER_LIST_PREFIX: &[u8] = b"fund";
-pub static FUNDER_AMOUNT_PREFIX: &[u8] = b"amnt";
-
 pub static FUNDER_STORE: AppendStore<CanonicalAddr> = AppendStore::new(b"fund");
+pub static COMMENT_STORE: AppendStore<String> = AppendStore::new(b"comm");
 
 pub const PREFIX_VIEWING_KEY: &[u8] = b"vkey";
 pub const SEED_KEY: &[u8] = b"seed";
@@ -124,9 +122,6 @@ pub fn get_description(storage: &dyn Storage) -> String {
         Err(_) => vec![],
     };
     base64::encode(stored_description)
-    //String::from_utf8(stored_description)
-    //    .ok()
-    //    .unwrap_or_default()
 }
 
 pub fn set_pledged_message(storage: &mut dyn Storage, pledged_message: String) -> StdResult<()> {
@@ -144,9 +139,6 @@ pub fn get_pledged_message(storage: &dyn Storage) -> String {
         Err(_) => vec![],
     };
     base64::encode(stored_pledged_message)
-    //String::from_utf8(stored_pledged_message)
-    //    .ok()
-    //    .unwrap_or_default()
 }
 
 pub fn set_funded_message(storage: &mut dyn Storage, funded_message: String) -> StdResult<()> {
@@ -164,9 +156,6 @@ pub fn get_funded_message(storage: &dyn Storage) -> String {
         Err(_) => vec![],
     };
     base64::encode(stored_funded_message)
-    //String::from_utf8(stored_funded_message)
-    //    .ok()
-    //    .unwrap_or_default()
 }
 
 pub fn set_goal(storage: &mut dyn Storage, goal: u128) -> StdResult<()> {
@@ -207,6 +196,24 @@ pub fn set_total(storage: &mut dyn Storage, total: u128) -> StdResult<()> {
 
 pub fn get_total(storage: &dyn Storage) -> StdResult<u128> {
     get_bin_data(storage, TOTAL_KEY)
+}
+
+pub fn push_comment(storage: &mut dyn Storage, comment: String) -> StdResult<u32> {
+    COMMENT_STORE.push(storage, &comment)?;
+    Ok(COMMENT_STORE.get_len(storage)? - 1)
+}
+
+pub fn get_comments(
+    storage: &dyn Storage,
+    page: u32,
+    page_size: u32,
+) -> StdResult<Vec<String>> {
+    let comments: StdResult<Vec<String>> = COMMENT_STORE
+        .iter(storage)?
+        .skip((page * page_size) as _)
+        .take(page_size as _)
+        .collect();
+    comments
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
