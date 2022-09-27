@@ -6,6 +6,7 @@ import {
     ContractInfo, 
     uploadContract,
     Snip20ContractInstance,
+    PlatformContractInstance,
 } from "./contracts";
 import { banner, base64, entropy, sleep } from "./utils";
 
@@ -94,6 +95,57 @@ const setupSScrtContract = async (secretjs: SecretNetworkClient) => {
     await printAllSnip20Balances(snip20);
 }
 
+//
+// Uploads the project contract
+//
+const setupProjectContract = async (secretjs: SecretNetworkClient): Promise<ContractInfo> => {
+    banner("Setting up project contract");
+
+    /// Upload the project contract code
+    console.log("Uploading project contract code");
+    const projectCode: ContractInfo = await uploadContract(
+        secretjs, 
+        readFileSync(`${__dirname}/../../contracts/project/contract.wasm.gz`) as Uint8Array,
+        "",
+        "", 
+        4_000_000
+    );
+    console.log(projectCode.codeId, projectCode.codeHash);
+
+    return projectCode;
+}
+
+//
+// Uploads the platform contract and initializes.
+//
+const setupPlatformContract = async (
+    secretjs: SecretNetworkClient, 
+    projectContractInfo: ContractInfo
+) => {
+    banner("Setting up platform contract");
+    
+    /// Upload and initialize the platform contract code
+    console.log("Uploading platform contract code");
+    const platformCode: ContractInfo = await uploadContract(
+        secretjs, 
+        readFileSync(`${__dirname}/../../contracts/platform/contract.wasm.gz`) as Uint8Array,
+        "",
+        "", 
+        4_000_000
+    );
+    console.log(platformCode.codeId, platformCode.codeHash);
+
+    console.log("Instantiating platform contract");
+    contracts.platform = new PlatformContractInstance("platform", platformCode);
+    const { platform } = contracts;
+    const platformInitMsg = {
+        project_contract_code_id: projectContractInfo.codeId,
+        project_contract_code_hash: projectContractInfo.codeHash
+    };
+    await platform.instantiate(secretjs, platformInitMsg, `platform-${platformCode.codeId}`);
+    console.log(platform.address);
+}
+
 const main = async () => {
     console.log("Creating signers for a, b, c, d");
     a.signer = await SecretNetworkClient.create({
@@ -134,6 +186,9 @@ const main = async () => {
     // comment out if running on chain already with sSCRT, and manually add existing contract info to contracts.snip20
     // TODO: add default values for contracts.snip20 on pulsar and mainnet
     await setupSScrtContract(a.signer);
+
+    let projectContractInfo = await setupProjectContract(a.signer);
+    await setupPlatformContract(a.signer, projectContractInfo);
 
     console.log("DONE");
 }

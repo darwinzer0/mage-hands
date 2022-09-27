@@ -3,6 +3,7 @@ import { Snip20ContractInstance } from "./snip20";
 import { Snip721ContractInstance } from "./snip721";
 
 import { SimulateResponse } from "secretjs/dist/protobuf_stuff/cosmos/tx/v1beta1/service";
+import { PlatformContractInstance } from "./platform";
 
 export type ContractInfo = {
     codeHash: string;
@@ -113,5 +114,6 @@ export class ContractInstance {
 
 export interface Contracts {
     [key: string]: Snip20ContractInstance | 
-                   Snip721ContractInstance,
+                   Snip721ContractInstance |
+                   PlatformContractInstance
 }

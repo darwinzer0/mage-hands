@@ -68,7 +68,7 @@ export class PlatformContractInstance extends ContractInstance {
         return tx;
     }
 
-    private async queryProjects(secretjs: SecretNetworkClient, page: number, page_size: number): Promise<PlatformProjectsResult> {
+    async queryProjects(secretjs: SecretNetworkClient, page: number, page_size: number): Promise<PlatformProjectsResult> {
         const query = { projects: { page, page_size } };
         const result = (await this.query(secretjs, query)) as PlatformProjectsResult;
         return result;
