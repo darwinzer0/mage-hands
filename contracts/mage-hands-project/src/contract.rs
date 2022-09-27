@@ -137,9 +137,6 @@ pub fn execute(
             categories,
         ),
         ExecuteMsg::Cancel { .. } => try_cancel(deps, env, info),
-        //ExecuteMsg::Contribute {
-        //    anonymous, entropy, ..
-        //} => try_contribute(deps, env, info, anonymous, entropy),
         ExecuteMsg::Receive {
             sender,
             from, 
