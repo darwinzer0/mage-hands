@@ -1,11 +1,12 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Env, Addr,
+    entry_point, from_binary, to_binary, Binary, Env, Addr,
     Response, StdError, StdResult, Uint128, DepsMut, Deps, MessageInfo,
 };
 
 use crate::msg::{
     ExecuteAnswer, ExecuteMsg, InstantiateMsg, PlatformExecuteMsg, QueryAnswer, QueryMsg, ResponseStatus,
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
+    ExecuteReceiveMsg,
 };
 use crate::state::{
     get_subtitle, set_subtitle,
@@ -279,18 +280,17 @@ fn try_receive(
         return Err(StdError::generic_err("Sender is incorrect SNIP-20 contract"));
     }
 
-    let anonymous = false;
-    /* 
+    let mut anonymous = false;
+    
     if let Some(bin_msg) = msg {
         match from_binary(&bin_msg)? {
             ExecuteReceiveMsg::ReceiveContribution {
-                anonymous
+                anon
             } => {
-                anonymous = anonymous
+                anonymous = anon
             }
         }
     }
-    */
 
     let project_status = get_status(deps.storage)?;
     let deadline = get_deadline(deps.storage)?;

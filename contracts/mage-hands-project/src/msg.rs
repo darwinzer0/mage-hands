@@ -88,6 +88,14 @@ pub enum ExecuteMsg {
     },
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecuteReceiveMsg {
+    ReceiveContribution {
+        anon: bool,
+    },
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseStatus {
