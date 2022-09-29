@@ -43,6 +43,7 @@ export type ProjectStatusResult = {
     subtitle: string;
     description: string;
     categories: number[];
+    spam_count: number;
     pledged_message?: string;
     funded_message?: string;
     contribution?: string;
