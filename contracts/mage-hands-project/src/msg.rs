@@ -81,6 +81,12 @@ pub enum ExecuteMsg {
     // comment on the project
     Comment {
         comment: String,
+        padding: Option<String>,
+    },
+    // flag project as spam
+    FlagSpam {
+        flag: bool,
+        padding: Option<String>,
     },
     GenerateViewingKey {
         entropy: String,
@@ -130,6 +136,11 @@ pub enum ExecuteAnswer {
         status: ResponseStatus,
         msg: String,
     },
+    FlagSpam {
+        spam_count: u32,
+        status: ResponseStatus,
+        msg: String,
+    },
     GenerateViewingKey {
         key: ViewingKey,
     },
@@ -169,6 +180,7 @@ pub enum QueryAnswer {
         subtitle: String,
         description: String,
         categories: Vec<u16>,
+        spam_count: u32,
     },
     StatusAuth {
         creator: Addr,
@@ -182,6 +194,7 @@ pub enum QueryAnswer {
         subtitle: String,
         description: String,
         categories: Vec<u16>,
+        spam_count: u32,
         pledged_message: Option<String>,
         funded_message: Option<String>,
         contribution: Option<Uint128>,
@@ -198,6 +211,7 @@ pub enum QueryAnswer {
         subtitle: String,
         description: String,
         categories: Vec<u16>,
+        spam_count: u32,
         pledged_message: Option<String>,
         funded_message: Option<String>,
         contribution: Option<Uint128>,

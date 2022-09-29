@@ -1,6 +1,6 @@
 use crate::viewing_key::ViewingKey;
 use cosmwasm_std::{CanonicalAddr, StdError, StdResult, Storage,};
-use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
+use cosmwasm_storage::{prefixed, prefixed_read};
 use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -23,12 +23,14 @@ pub static DEADLINE_KEY: &[u8] = b"dead";
 pub static DEADMAN_KEY: &[u8] = b"dman";
 pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static TOTAL_KEY: &[u8] = b"totl";
+pub static SPAM_COUNT_KEY: &[u8] = b"spac";
 
 pub static FUNDER_STORE: AppendStore<CanonicalAddr> = AppendStore::new(b"fund");
 pub static COMMENT_STORE: AppendStore<String> = AppendStore::new(b"comm");
 
-pub const PREFIX_VIEWING_KEY: &[u8] = b"vkey";
-pub const SEED_KEY: &[u8] = b"seed";
+pub static PREFIX_VIEWING_KEY: &[u8] = b"vkey";
+pub static PREFIX_SPAM_KEY: &[u8] = b"spam";
+pub static SEED_KEY: &[u8] = b"seed";
 
 pub static PAID_OUT_KEY: &[u8] = b"pout";
 
@@ -345,16 +347,66 @@ pub fn is_paid_out(storage: &dyn Storage) -> bool {
 }
 
 //
+// Spam flag
+//
+pub fn set_spam_flag(storage: &mut dyn Storage, addr: &CanonicalAddr, spam: bool) -> StdResult<()> {
+    let current_spam = get_spam_flag(storage, addr)?;
+
+    let mut spam_store = prefixed(storage, PREFIX_SPAM_KEY);
+    if spam {
+        if !current_spam {
+            spam_store.set(addr.as_slice(), &[1_u8]);
+            increment_spam_count(storage)?;
+        }
+    } else {
+        if current_spam {
+            spam_store.set(addr.as_slice(), &[0_u8]);
+            decrement_spam_count(storage)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn get_spam_flag(storage: &dyn Storage, addr: &CanonicalAddr) -> StdResult<bool> {
+    let spam_store = prefixed_read(storage, PREFIX_SPAM_KEY);
+    let spam = spam_store.get(addr.as_slice());
+    match spam.as_deref() {
+        None => Ok(false),
+        Some([0_u8]) => Ok(false),
+        _ => Ok(true)
+    }
+}
+
+pub fn increment_spam_count(storage: &mut dyn Storage) -> StdResult<u32> {
+    let spam_count = get_spam_count(storage)?;
+    set_bin_data(storage, SPAM_COUNT_KEY, &(spam_count + 1))?;
+    return Ok(spam_count + 1);
+}
+
+pub fn decrement_spam_count(storage: &mut dyn Storage) -> StdResult<u32> {
+    let spam_count = get_spam_count(storage)?;
+    if spam_count == 0 {
+        return Ok(spam_count);
+    }
+    set_bin_data(storage, SPAM_COUNT_KEY, &(spam_count - 1))?;
+    return Ok(spam_count - 1);
+}
+
+pub fn get_spam_count(storage: &dyn Storage) -> StdResult<u32> {
+    get_bin_data(storage, SPAM_COUNT_KEY)
+}
+
+//
 // Viewing Keys
 //
 
 pub fn write_viewing_key(storage: &mut dyn Storage, owner: &CanonicalAddr, key: &ViewingKey) {
-    let mut user_key_store = PrefixedStorage::new(storage, PREFIX_VIEWING_KEY);
+    let mut user_key_store = prefixed(storage, PREFIX_VIEWING_KEY);
     user_key_store.set(owner.as_slice(), &key.to_hashed());
 }
 
 pub fn read_viewing_key(storage: &dyn Storage, owner: &CanonicalAddr) -> Option<Vec<u8>> {
-    let user_key_store = ReadonlyPrefixedStorage::new(storage, PREFIX_VIEWING_KEY);
+    let user_key_store = prefixed_read(storage, PREFIX_VIEWING_KEY);
     user_key_store.get(owner.as_slice())
 }
 

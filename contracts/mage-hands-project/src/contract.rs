@@ -17,7 +17,7 @@ use crate::state::{
     set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
-    push_comment, get_comments,
+    push_comment, get_comments, set_spam_flag, get_spam_count,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -147,7 +147,8 @@ pub fn execute(
         } => try_receive(deps, env, info, sender, from, amount, msg),
         ExecuteMsg::Refund { .. } => try_refund(deps, env, info),
         ExecuteMsg::PayOut { .. } => try_pay_out(deps, env, info),
-        ExecuteMsg::Comment { comment } => try_comment(deps, env, info, comment),
+        ExecuteMsg::Comment { comment, .. } => try_comment(deps, env, info, comment),
+        ExecuteMsg::FlagSpam { flag, .. } => try_flag_spam(deps, env, info, flag),
         ExecuteMsg::GenerateViewingKey { entropy, .. } => {
             try_generate_viewing_key(deps, env, info, entropy)
         }
@@ -528,6 +529,23 @@ pub fn try_comment(
     Ok(resp)
 }
 
+pub fn try_flag_spam(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    flag: bool,
+) -> StdResult<Response> {
+    set_spam_flag(deps.storage, &deps.api.addr_canonicalize(&info.sender.as_str())?, flag)?;
+    let spam_count = get_spam_count(deps.storage)?;
+    let mut resp = Response::default();
+    resp.data = Some(to_binary(&ExecuteAnswer::FlagSpam {
+        spam_count,
+        status: Success,
+        msg: String::from("Flag spam updated"),
+    })?);
+    Ok(resp)
+}
+
 #[entry_point]
 pub fn query(
     deps: Deps, 
@@ -610,6 +628,8 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
 
     let categories = get_categories(deps.storage)?;
 
+    let spam_count = get_spam_count(deps.storage)?;
+
     to_binary(&QueryAnswer::Status {
         creator,
         status: status_string,
@@ -622,6 +642,7 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
         subtitle,
         description,
         categories,
+        spam_count,
     })
 }
 
@@ -663,6 +684,8 @@ fn query_status_auth(
 
     let categories = get_categories(deps.storage)?;
 
+    let spam_count = get_spam_count(deps.storage)?;
+
     let sender_address_raw = deps.api.addr_canonicalize(&address.as_str())?;
     let stored_funder = get_funder(deps.storage, &sender_address_raw);
 
@@ -697,6 +720,7 @@ fn query_status_auth(
         subtitle,
         description,
         categories,
+        spam_count,
         pledged_message,
         funded_message,
         contribution,
@@ -750,6 +774,8 @@ fn query_status_with_permit(
 
     let categories = get_categories(deps.storage)?;
 
+    let spam_count = get_spam_count(deps.storage)?;
+
     let sender_address_raw = deps.api.addr_canonicalize(&address.as_str())?;
 
     let stored_funder = get_funder(deps.storage, &sender_address_raw);
@@ -785,6 +811,7 @@ fn query_status_with_permit(
         subtitle,
         description,
         categories,
+        spam_count,
         pledged_message,
         funded_message,
         contribution,
