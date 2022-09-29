@@ -71,6 +71,18 @@ export class ProjectContractInstance extends ContractInstance {
         return tx;
     }
 
+    async comment(secretjs: SecretNetworkClient, comment: string): Promise<Tx> {
+        const msg = { comment: { comment, padding: "=========" }};
+        const tx = await this.exec(secretjs, msg, 100_000);
+        return tx;
+    }
+
+    async flag_spam(secretjs: SecretNetworkClient, flag: boolean): Promise<Tx> {
+        const msg = { flag_spam: { flag, padding: "=========" }};
+        const tx = await this.exec(secretjs, msg, 100_000);
+        return tx;
+    }
+
     async payOut(secretjs: SecretNetworkClient): Promise<Tx> {
         const msg = { pay_out: { padding: "=========" } };
         const tx = await this.exec(secretjs, msg, 100_000);
