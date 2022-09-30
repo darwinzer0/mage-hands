@@ -8,7 +8,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::{RewardMessage, self};
+use crate::reward::{RewardMessage};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
