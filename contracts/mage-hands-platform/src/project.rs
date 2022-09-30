@@ -13,6 +13,8 @@ pub struct ProjectInstantiateMsg {
     pub pledged_message: Option<String>,
     // message for people who have contributed money after project is successfully funded
     pub funded_message: Option<String>,
+    // reward messages based on contribution thresholds
+    pub reward_messages: Vec<RewardMessage>,
     pub goal: Uint128,
     pub deadline: u64,
     pub deadman: u64,
@@ -30,6 +32,12 @@ pub struct ProjectInstantiateMsg {
     pub snip24_reward_init: Option<Snip24RewardInit>,
 
     pub padding: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
+pub struct RewardMessage {
+    pub threshold: Uint128,
+    pub message: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]

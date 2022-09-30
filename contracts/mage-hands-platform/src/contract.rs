@@ -1,7 +1,7 @@
 use crate::msg::{
     ContractInfo, ExecuteAnswer, ExecuteMsg, InstantiateMsg, QueryAnswer, QueryMsg, ResponseStatus::Success, space_pad,
 };
-use crate::project::{ProjectInstantiateMsg, Snip24RewardInit, };
+use crate::project::{ProjectInstantiateMsg, Snip24RewardInit, RewardMessage, };
 use crate::state::{
     add_project, get_config, get_projects, is_creating_project, project_count,
     set_config, set_creating_project, Config, StoredContractInfo,
@@ -68,6 +68,7 @@ pub fn execute(
             description,
             pledged_message,
             funded_message,
+            reward_messages,
             goal,
             deadline,
             categories,
@@ -85,6 +86,7 @@ pub fn execute(
             description,
             pledged_message,
             funded_message,
+            reward_messages,
             goal,
             deadline,
             categories,
@@ -126,6 +128,7 @@ pub fn try_create(
     description: String,
     pledged_message: Option<String>,
     funded_message: Option<String>,
+    reward_messages: Vec<RewardMessage>,
     goal: Uint128,
     deadline: u64,
     categories: Vec<u16>,
@@ -148,6 +151,7 @@ pub fn try_create(
         description,
         pledged_message,
         funded_message,
+        reward_messages,
         goal,
         deadline,
         deadman: config.deadman,

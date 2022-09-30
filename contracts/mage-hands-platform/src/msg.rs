@@ -2,7 +2,7 @@ use cosmwasm_std::{Addr, Uint128};
 use serde::{Deserialize, Serialize};
 use secret_toolkit::permit::Permit;
 
-use crate::project::Snip24RewardInit;
+use crate::project::{Snip24RewardInit, RewardMessage};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct InstantiateMsg {
@@ -25,6 +25,7 @@ pub enum ExecuteMsg {
         description: String,
         pledged_message: Option<String>,
         funded_message: Option<String>,
+        reward_messages: Vec<RewardMessage>,
         goal: Uint128,
         deadline: u64,
         categories: Vec<u16>,
