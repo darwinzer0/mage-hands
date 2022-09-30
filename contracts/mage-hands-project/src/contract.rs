@@ -8,6 +8,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
+use crate::reward::RewardMessage;
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -17,7 +18,7 @@ use crate::state::{
     set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
-    push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages,
+    push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, get_reward_messages,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -694,6 +695,7 @@ fn query_status_auth(
 
     let mut pledged_message: Option<String> = None;
     let mut funded_message: Option<String> = None;
+    let mut reward_messages: Vec<RewardMessage> = vec![];
     let mut contribution: Option<Uint128> = None;
 
     match stored_funder {
@@ -704,6 +706,12 @@ fn query_status_auth(
                 }
                 if status == SUCCESSFUL && is_paid_out(deps.storage) {
                     funded_message = Some(get_funded_message(deps.storage));
+                    reward_messages = get_reward_messages(deps.storage)?
+                        .into_iter()
+                        .filter(|reward_message| {
+                            stored_funder.amount >= reward_message.threshold.u128()
+                        })
+                        .collect();
                 }
             }
             contribution = Some(Uint128::from(stored_funder.amount));
@@ -726,6 +734,7 @@ fn query_status_auth(
         spam_count,
         pledged_message,
         funded_message,
+        reward_messages,
         contribution,
     })
 }

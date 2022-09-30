@@ -202,6 +202,7 @@ pub enum QueryAnswer {
         spam_count: u32,
         pledged_message: Option<String>,
         funded_message: Option<String>,
+        reward_messages: Vec<RewardMessage>,
         contribution: Option<Uint128>,
     },
     Comments {
