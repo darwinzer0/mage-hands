@@ -9,6 +9,7 @@ export type ProjectInitMsg = {
     description: string;
     pledged_message?: string;
     funded_message?: string;
+    reward_messages: RewardMessage[];
     goal: string;
     deadline: number;
     deadman: number;
@@ -19,6 +20,33 @@ export type ProjectInitMsg = {
     snip20_contract: string;
     snip20_hash: string;
     padding?: string;
+}
+
+export type Snip24RewardInit = {
+    reward_snip24_code_id: number;
+    reward_snip24_code_hash: string;
+    name: string;
+    admin: string;
+    symbol: string;
+    decimals: number;
+    public_total_supply: boolean;
+    enable_deposit: boolean;
+    enable_redeem: boolean;
+    enable_mint: boolean;
+    enable_burn: boolean;
+    amount: string;
+    contributors_vesting_schedule: VestingEvent[];
+    contributors_per_mille: number;
+    minimum_contribution: string;
+    contribution_weight: number;
+    creator_vesting_schedule: VestingEvent[];
+    creator_per_mille: number;
+    creator_addresses?: string[];
+}
+
+export type VestingEvent = {
+    block: number;
+    per_mille: number;
 }
 
 export type ProjectChangeTextMsg = {
@@ -46,7 +74,13 @@ export type ProjectStatusResult = {
     spam_count: number;
     pledged_message?: string;
     funded_message?: string;
+    reward_messages?: RewardMessage[];
     contribution?: string;
+}
+
+export type RewardMessage = {
+    threshold: string;
+    message: string;
 }
 
 export class ProjectContractInstance extends ContractInstance {
