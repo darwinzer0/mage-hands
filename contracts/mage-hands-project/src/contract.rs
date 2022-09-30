@@ -8,7 +8,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::RewardMessage;
+use crate::reward::{RewardMessage, self};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -129,6 +129,7 @@ pub fn execute(
             description,
             pledged_message,
             funded_message,
+            reward_messages,
             categories,
             ..
         } => try_change_text(
@@ -140,6 +141,7 @@ pub fn execute(
             description,
             pledged_message,
             funded_message,
+            reward_messages,
             categories,
         ),
         ExecuteMsg::Cancel { .. } => try_cancel(deps, env, info),
@@ -198,6 +200,7 @@ fn try_change_text(
     description: Option<String>,
     pledged_message: Option<String>,
     funded_message: Option<String>,
+    reward_messages: Option<Vec<RewardMessage>>,
     categories: Option<Vec<u16>>,
 ) -> StdResult<Response> {
     let status;
@@ -246,6 +249,11 @@ fn try_change_text(
         if funded_message.is_some() {
             set_funded_message(deps.storage, funded_message.unwrap())?;
             updates.push(String::from("funded message"));
+        }
+
+        if reward_messages.is_some() {
+            set_reward_messages(deps.storage, reward_messages.unwrap())?;
+            updates.push(String::from("reward messages"));
         }
 
         if categories.is_some() {

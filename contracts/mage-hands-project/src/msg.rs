@@ -61,6 +61,7 @@ pub enum ExecuteMsg {
         description: Option<String>,
         pledged_message: Option<String>,
         funded_message: Option<String>,
+        reward_messages: Option<Vec<RewardMessage>>,
         categories: Option<Vec<u16>>,
         padding: Option<String>,
     },
