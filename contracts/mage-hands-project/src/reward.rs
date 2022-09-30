@@ -103,3 +103,15 @@ pub struct StoredSnip24RewardInit {
     // if none, will distribute to project creator address
     pub creator_addresses: Option<Vec<CanonicalAddr>>,
 }
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
+pub struct RewardMessage {
+    pub threshold: Uint128,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
+pub struct StoredRewardMessage {
+    pub threshold: u128,
+    pub message: String,
+}

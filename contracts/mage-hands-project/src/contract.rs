@@ -17,7 +17,7 @@ use crate::state::{
     set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
-    push_comment, get_comments, set_spam_flag, get_spam_count,
+    push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -61,6 +61,9 @@ pub fn instantiate(
     set_pledged_message(deps.storage, pledged_message)?;
     let funded_message = msg.funded_message.unwrap_or_else(|| String::from(""));
     set_funded_message(deps.storage, funded_message)?;
+    set_reward_messages(deps.storage, msg.reward_messages)?;
+
+    set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init)?;
 
     let goal = msg.goal.u128();
     if goal == 0 {

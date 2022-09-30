@@ -1,4 +1,4 @@
-use crate::reward::Snip24RewardInit;
+use crate::reward::{Snip24RewardInit, RewardMessage};
 use crate::viewing_key::ViewingKey;
 use cosmwasm_std::{Addr, Uint128, Binary, };
 use secret_toolkit::permit::Permit;
@@ -15,6 +15,7 @@ pub struct InstantiateMsg {
     pub pledged_message: Option<String>,
     // message for people who have contributed money after project is funded
     pub funded_message: Option<String>,
+    pub reward_messages: Vec<RewardMessage>,
     pub goal: Uint128,
     // deadline (block height)
     pub deadline: u64,
