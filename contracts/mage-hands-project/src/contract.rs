@@ -25,7 +25,7 @@ use secret_toolkit::{
     crypto::sha_256,
     permit::{Permit,},
     snip20::{
-        register_receive_msg, transfer_msg, balance_query, set_viewing_key_msg,
+        register_receive_msg, transfer_msg, set_viewing_key_msg,
     },
     utils::{HandleCallback, Query},
 };
@@ -267,7 +267,7 @@ fn try_receive(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    sender: Addr,
+    _sender: Addr,
     from: Addr,
     amount: Uint128,
     msg: Option<Binary>,

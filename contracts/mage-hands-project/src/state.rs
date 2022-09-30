@@ -1,5 +1,6 @@
+use crate::reward::{Snip24RewardInit, StoredSnip24RewardInit};
 use crate::viewing_key::ViewingKey;
-use cosmwasm_std::{CanonicalAddr, StdError, StdResult, Storage,};
+use cosmwasm_std::{CanonicalAddr, StdError, StdResult, Storage, Api, Uint128 };
 use cosmwasm_storage::{prefixed, prefixed_read};
 use secret_toolkit::storage::{AppendStore};
 use serde::de::DeserializeOwned;
@@ -12,6 +13,7 @@ pub const SUCCESSFUL: u8 = 3_u8;
 
 pub static CONFIG_KEY: &[u8] = b"conf";
 pub static STATUS_KEY: &[u8] = b"stat";
+
 pub static CREATOR_KEY: &[u8] = b"crea";
 pub static TITLE_KEY: &[u8] = b"titl";
 pub static SUBTITLE_KEY: &[u8] = b"subt";
@@ -22,6 +24,8 @@ pub static GOAL_KEY: &[u8] = b"goal";
 pub static DEADLINE_KEY: &[u8] = b"dead";
 pub static DEADMAN_KEY: &[u8] = b"dman";
 pub static CATEGORIES_KEY: &[u8] = b"cate";
+pub static REWARD_KEY: &[u8] = b"rewa";
+
 pub static TOTAL_KEY: &[u8] = b"totl";
 pub static SPAM_COUNT_KEY: &[u8] = b"spac";
 
@@ -190,6 +194,81 @@ pub fn set_categories(storage: &mut dyn Storage, categories: Vec<u16>) -> StdRes
 
 pub fn get_categories(storage: &dyn Storage) -> StdResult<Vec<u16>> {
     get_bin_data(storage, CATEGORIES_KEY)
+}
+
+pub fn set_reward(storage: &mut dyn Storage, api: &dyn Api, reward: Snip24RewardInit) -> StdResult<()> {
+    let stored_reward = StoredSnip24RewardInit {
+        reward_snip24_code_id: reward.reward_snip24_code_id,
+        reward_snip24_code_hash: reward.reward_snip24_code_hash,
+        name: reward.name,
+        admin: match reward.admin {
+            None => None,
+            Some(a) => Some(api.addr_canonicalize(a.as_str())?),
+        },
+        symbol: reward.symbol,
+        decimals: reward.decimals,
+        public_total_supply: reward.public_total_supply,
+        enable_deposit: reward.enable_deposit,
+        enable_redeem: reward.enable_redeem,
+        enable_mint: reward.enable_mint,
+        enable_burn: reward.enable_burn,
+        amount: reward.amount.u128(),
+        contributors_vesting_schedule: reward.contributors_vesting_schedule,
+        contributors_per_mille: reward.contributors_per_mille,
+        minimum_contribution: reward.minimum_contribution.u128(),
+        maximum_contribution: reward.maximum_contribution.u128(),
+        contribution_weight: reward.contribution_weight,
+        creator_vesting_schedule: reward.creator_vesting_schedule,
+        creator_per_mille: reward.creator_per_mille,
+        creator_addresses: match reward.creator_addresses {
+            None => None,
+            Some(addresses) => Some(
+                addresses
+                    .iter()
+                    .map(|a| api.addr_canonicalize(a.as_str()).unwrap())
+                    .collect()
+            ),
+        }
+    };
+    set_bin_data(storage, REWARD_KEY, &stored_reward)
+}
+
+pub fn get_reward(storage: &dyn Storage, api: &dyn Api) -> StdResult<Snip24RewardInit> {
+    let stored_reward: StoredSnip24RewardInit = get_bin_data(storage, REWARD_KEY)?;
+    let reward = Snip24RewardInit {
+        reward_snip24_code_id: stored_reward.reward_snip24_code_id,
+        reward_snip24_code_hash: stored_reward.reward_snip24_code_hash,
+        name: stored_reward.name,
+        admin: match stored_reward.admin {
+            None => None,
+            Some(a) => Some(api.addr_humanize(&a)?),
+        },
+        symbol: stored_reward.symbol,
+        decimals: stored_reward.decimals,
+        public_total_supply: stored_reward.public_total_supply,
+        enable_deposit: stored_reward.enable_deposit,
+        enable_redeem: stored_reward.enable_redeem,
+        enable_mint: stored_reward.enable_mint,
+        enable_burn: stored_reward.enable_burn,
+        amount: Uint128::from(stored_reward.amount),
+        contributors_vesting_schedule: stored_reward.contributors_vesting_schedule,
+        contributors_per_mille: stored_reward.contributors_per_mille,
+        minimum_contribution: Uint128::from(stored_reward.minimum_contribution),
+        maximum_contribution: Uint128::from(stored_reward.maximum_contribution),
+        contribution_weight: stored_reward.contribution_weight,
+        creator_vesting_schedule: stored_reward.creator_vesting_schedule,
+        creator_per_mille: stored_reward.creator_per_mille,
+        creator_addresses: match stored_reward.creator_addresses {
+            None => None,
+            Some(addresses) => Some(
+                addresses
+                    .iter()
+                    .map(|a| api.addr_humanize(a).unwrap())
+                    .collect()
+            ),
+        }
+    };
+    Ok(reward)
 }
 
 pub fn set_total(storage: &mut dyn Storage, total: u128) -> StdResult<()> {

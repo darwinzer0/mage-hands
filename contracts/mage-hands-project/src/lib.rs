@@ -3,3 +3,4 @@ pub mod msg;
 pub mod state;
 mod utils;
 mod viewing_key;
+mod reward;

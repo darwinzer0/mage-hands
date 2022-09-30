@@ -1,3 +1,4 @@
+use crate::reward::Snip24RewardInit;
 use crate::viewing_key::ViewingKey;
 use cosmwasm_std::{Addr, Uint128, Binary, };
 use secret_toolkit::permit::Permit;
@@ -26,9 +27,12 @@ pub struct InstantiateMsg {
     pub source_contract: Addr,
     pub source_hash: String,
 
-    // contract info for snip20
+    // contract info for snip20/4 contributions
     pub snip20_contract: Addr,
-    pub snip20_hash: String,
+    pub snip20_hash: String, 
+
+    // new snip24
+    pub snip24_reward_init: Option<Snip24RewardInit>,
 
     pub padding: Option<String>,
 }
