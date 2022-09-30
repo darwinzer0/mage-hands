@@ -1,6 +1,7 @@
 import { SecretNetworkClient, fromUtf8, Permit, Tx} from "secretjs";
 import { entropy } from "../utils";
 import { ContractInstance } from "./contracts";
+import { RewardMessage, Snip24RewardInit } from "./project";
 
 export type PlatformInitMsg = {
     owner?: string;
@@ -15,9 +16,11 @@ export type PlatformCreateMsg = {
     description: string;
     pledged_message?: string;
     funded_message?: string;
+    reward_messages: RewardMessage[];
     goal: string;
     deadline: number;
     categories: number[];
+    snip24_reward_init?: Snip24RewardInit;
     entropy: string; // used to set up prng in project contract
     padding?: string;
 }
