@@ -1,6 +1,7 @@
 use crate::msg::{
-    ContractInfo, ExecuteAnswer, ExecuteMsg, InstantiateMsg, ProjectInstantiateMsg, QueryAnswer, QueryMsg, ResponseStatus::Success, space_pad,
+    ContractInfo, ExecuteAnswer, ExecuteMsg, InstantiateMsg, QueryAnswer, QueryMsg, ResponseStatus::Success, space_pad,
 };
+use crate::project::{ProjectInstantiateMsg, Snip24RewardInit, };
 use crate::state::{
     add_project, get_config, get_projects, is_creating_project, project_count,
     set_config, set_creating_project, Config, StoredContractInfo,
@@ -72,6 +73,7 @@ pub fn execute(
             categories,
             snip20_contract,
             snip20_hash,
+            snip24_reward_init,
             entropy,
             ..
         } => try_create(
@@ -88,6 +90,7 @@ pub fn execute(
             categories,
             snip20_contract,
             snip20_hash,
+            snip24_reward_init,
             entropy,
         ),
         ExecuteMsg::Config {
@@ -128,6 +131,7 @@ pub fn try_create(
     categories: Vec<u16>,
     snip20_contract: Addr,
     snip20_hash: String,
+    snip24_reward_init: Option<Snip24RewardInit>,
     entropy: String,
 ) -> StdResult<Response> {
     let msg;
@@ -153,6 +157,7 @@ pub fn try_create(
         source_hash: env.contract.code_hash,
         snip20_contract,
         snip20_hash,
+        snip24_reward_init,
         padding: None,
     };
     let label = format!(

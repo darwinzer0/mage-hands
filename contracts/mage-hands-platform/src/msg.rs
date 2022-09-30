@@ -1,7 +1,8 @@
 use cosmwasm_std::{Addr, Uint128};
-use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 use secret_toolkit::permit::Permit;
+
+use crate::project::Snip24RewardInit;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct InstantiateMsg {
@@ -12,36 +13,6 @@ pub struct InstantiateMsg {
 
     // deadman timeout for successful projects
     pub deadman: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct ProjectInstantiateMsg {
-    pub creator: Addr,
-    pub title: String,
-    pub subtitle: Option<String>,
-    pub description: String,
-    // message for people who have pledged money before funding has been completed
-    pub pledged_message: Option<String>,
-    // message for people who have contributed money after project is successfully funded
-    pub funded_message: Option<String>,
-    pub goal: Uint128,
-    pub deadline: u64,
-    pub deadman: u64,
-    pub categories: Vec<u16>,
-
-    pub entropy: String,
-
-    pub source_contract: Addr,
-    pub source_hash: String,
-
-    pub snip20_contract: Addr,
-    pub snip20_hash: String,
-
-    pub padding: Option<String>,
-}
-
-impl InitCallback for ProjectInstantiateMsg {
-    const BLOCK_SIZE: usize = 256;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -60,6 +31,7 @@ pub enum ExecuteMsg {
         entropy: String, // used to set up prng in project contract
         snip20_contract: Addr,
         snip20_hash: String,
+        snip24_reward_init: Option<Snip24RewardInit>,
         padding: Option<String>,
     },
     // owner only
