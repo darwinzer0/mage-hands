@@ -10,7 +10,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance};
+use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -39,6 +39,7 @@ use crate::parse_reply::{parse_reply_instantiate_data};
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const SNIP24_INSTANTIATE_REPLY_ID: u64 = 1;
+pub const PER_MILLE_DENOM: u16 = 1000;
 
 #[entry_point]
 pub fn instantiate(
@@ -70,6 +71,7 @@ pub fn instantiate(
     set_funded_message(deps.storage, funded_message)?;
     set_reward_messages(deps.storage, msg.reward_messages)?;
 
+    validate_snip24_reward_init(msg.snip24_reward_init.clone())?;
     set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init)?;
     set_snip24_reward_address(deps.storage, None)?;
 
@@ -120,6 +122,34 @@ pub fn instantiate(
         .add_message(snip20_register_receive_msg)
         .add_message(snip20_set_viewing_key_msg);
     Ok(resp)
+}
+
+fn validate_snip24_reward_init(
+    reward_init: Option<Snip24RewardInit>,
+) -> StdResult<()> {
+    if reward_init.is_some() {
+        let reward_init = reward_init.unwrap();
+        let sum = reward_init.contributors_vesting_schedule
+            .into_iter()
+            .map(|r| r.per_mille)
+            .reduce(|accum, item| { accum + item });
+        match sum {
+            Some(PER_MILLE_DENOM) => {},
+            None => {},
+            _ => { return Err(StdError::generic_err(format!("Contributors' vesting schedule per mille does not sum to {}", PER_MILLE_DENOM))); },
+        }
+
+        let sum = reward_init.creator_vesting_schedule
+            .into_iter()
+            .map(|r| r.per_mille)
+            .reduce(|accum, item| { accum + item });
+        match sum {
+            Some(PER_MILLE_DENOM) => {},
+            None => {},
+            _ => { return Err(StdError::generic_err(format!("Creator's vesting schedule per mille does not sum to {}", PER_MILLE_DENOM))); },
+        }
+    }
+    Ok(())
 }
 
 #[entry_point]
@@ -523,6 +553,7 @@ fn try_pay_out(
                         decimals: snip24_reward_init.decimals,
                         initial_balances: Some(vec![
                             InitialBalance {
+                                // allocate all coins to the project contract
                                 address: env.contract.address.clone(),
                                 amount: snip24_reward_init.amount,
                             }
