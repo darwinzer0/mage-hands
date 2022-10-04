@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "mage-hands-platform",
+    "mage-hands-project",
+]
