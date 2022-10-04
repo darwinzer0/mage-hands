@@ -8,10 +8,10 @@ use crate::state::{
 };
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Env, DepsMut, MessageInfo, Addr,
-    Response, StdError, StdResult, Deps, Uint128, SubMsg,
+    Response, StdError, StdResult, Deps, Uint128,
 };
 use secret_toolkit::utils::{ InitCallback, };
-use secret_toolkit::permit::{ validate, RevokedPermits,Permit, };
+use secret_toolkit::permit::{ validate, RevokedPermits, Permit, };
 
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
@@ -173,18 +173,17 @@ pub fn try_create(
 
     let config: Config = get_config(deps.storage)?;
 
-    let cosmos_msg = SubMsg::new(project_init_msg.to_cosmos_msg(
+    let cosmos_msg = project_init_msg.to_cosmos_msg(
         label.clone(),
         config.project_contract_code_id,
         String::from_utf8(config.project_contract_code_hash).unwrap_or_default(),
         None,
-    )?);
+    )?;
     messages.push(cosmos_msg);
 
     msg = format!("Created project contract {}", label);
 
-    let mut resp = Response::default();
-    resp.messages = messages;
+    let mut resp = Response::new().add_messages(messages);
     resp.data = Some(to_binary(&ExecuteAnswer::Create {
         status: Success,
         msg,
