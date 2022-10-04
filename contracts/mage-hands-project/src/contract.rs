@@ -1,14 +1,16 @@
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Env, Addr,
     Response, StdError, StdResult, Uint128, DepsMut, Deps, MessageInfo,
+    WasmMsg, SubMsg, CosmosMsg, Reply, 
 };
+use rand::RngCore;
 
 use crate::msg::{
     ExecuteAnswer, ExecuteMsg, InstantiateMsg, PlatformExecuteMsg, QueryAnswer, QueryMsg, ResponseStatus,
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::{RewardMessage};
+use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -18,7 +20,8 @@ use crate::state::{
     set_description, set_funded_message, set_goal, set_pledged_message, set_prng_seed,
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
-    push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, get_reward_messages,
+    push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
+    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -30,9 +33,12 @@ use secret_toolkit::{
     },
     utils::{HandleCallback, Query},
 };
+use crate::random::{supply_more_entropy, get_random_number_generator};
+use crate::parse_reply::{parse_reply_instantiate_data};
 
 pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
+pub const SNIP24_INSTANTIATE_REPLY_ID: u64 = 1;
 
 #[entry_point]
 pub fn instantiate(
@@ -65,6 +71,7 @@ pub fn instantiate(
     set_reward_messages(deps.storage, msg.reward_messages)?;
 
     set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init)?;
+    set_snip24_reward_address(deps.storage, None)?;
 
     let goal = msg.goal.u128();
     if goal == 0 {
@@ -122,6 +129,10 @@ pub fn execute(
     info: MessageInfo, 
     msg: ExecuteMsg
 ) -> StdResult<Response> {
+    let mut fresh_entropy = to_binary(&msg)?.0;
+    fresh_entropy.extend(to_binary(&env)?.0);
+    fresh_entropy.extend(to_binary(&info)?.0);
+    supply_more_entropy(deps.storage, fresh_entropy.as_slice())?;
     let response = match msg {
         ExecuteMsg::ChangeText {
             title,
@@ -463,7 +474,8 @@ fn try_pay_out(
         return Err(StdError::generic_err("Already paid out"));
     }
 
-    let mut messages = vec![];
+    let mut transfer_message: Option<CosmosMsg> = None;
+    let mut instantiate_message: Option<CosmosMsg> = None;
     let status = get_status(deps.storage)?;
     let deadline = get_deadline(deps.storage)?;
     let deadman = get_deadman(deps.storage)?;
@@ -479,19 +491,64 @@ fn try_pay_out(
         } else {
             let total = get_total(deps.storage)?;
             let config = get_config(deps.storage)?;
-            let snip20_transfer_msg = transfer_msg(
-                info.sender.into_string(), 
+            transfer_message = Some(transfer_msg(
+                info.sender.clone().into_string(), 
                 Uint128::from(total), 
                 None, 
                 None, 
                 256, 
                 config.snip20_hash, 
                 deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
-            )?;
-            messages.push(snip20_transfer_msg);
+            )?);
             msg = format!("Pay out {} uscrt", total);
     
             paid_out(deps.storage)?;
+
+            // handle snip24 reward
+
+            // create the snip24 contract and allocate coins to project contract
+            // all vesting will be handled by this contract
+            let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
+            if snip24_reward_init.is_some() {
+                let snip24_reward_init = snip24_reward_init.unwrap();
+
+                // Creating a message to create new snip24 token
+                instantiate_message = Some(CosmosMsg::Wasm(WasmMsg::Instantiate {
+                    code_id: snip24_reward_init.reward_snip24_code_id,
+                    code_hash: snip24_reward_init.reward_snip24_code_hash,
+                    msg: to_binary(&Snip24InstantiateMsg {
+                        admin: snip24_reward_init.admin,
+                        name: snip24_reward_init.name.clone(),
+                        symbol: snip24_reward_init.symbol.clone(),
+                        decimals: snip24_reward_init.decimals,
+                        initial_balances: Some(vec![
+                            InitialBalance {
+                                address: env.contract.address.clone(),
+                                amount: snip24_reward_init.amount,
+                            }
+                        ]),
+                        config: Some(InitConfig {
+                            public_total_supply: Some(snip24_reward_init.public_total_supply),
+                            enable_deposit: Some(snip24_reward_init.enable_deposit),
+                            enable_redeem: Some(snip24_reward_init.enable_redeem),
+                            enable_mint: Some(snip24_reward_init.enable_mint),
+                            enable_burn: Some(snip24_reward_init.enable_burn),
+                        }),
+                        prng_seed: to_binary(
+                            &sha_256(
+                                [
+                                    &get_random_number_generator(deps.storage).next_u64().to_be_bytes(), 
+                                    to_binary(&env)?.0.as_slice(),
+                                    to_binary(&info)?.0.as_slice(),
+                                ].concat().as_slice()
+                            )
+                        )?, 
+                    })?,
+                    funds: vec![],
+                    label: format!("{}-{}-{}", snip24_reward_init.name, snip24_reward_init.symbol, env.block.height),
+                }));
+            }
+
             response_status = Success;
         }
     } else {
@@ -504,12 +561,44 @@ fn try_pay_out(
         );
     }
 
-    let mut resp = Response::new().add_messages(messages);
+    let mut submessages: Vec<SubMsg> = vec![];
+    if instantiate_message.is_some() {
+        let instantiate_submsg = SubMsg::reply_on_success(instantiate_message.unwrap(), SNIP24_INSTANTIATE_REPLY_ID);
+        submessages.push(instantiate_submsg);
+    }
+    if transfer_message.is_some() {
+        submessages.push(SubMsg::new(transfer_message.unwrap()));
+    }
+    let mut resp = Response::new().add_submessages(submessages);
     resp.data = Some(to_binary(&ExecuteAnswer::PayOut {
         status: response_status,
         msg,
     })?);
     Ok(resp)
+}
+
+#[entry_point]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    match msg.id {
+        SNIP24_INSTANTIATE_REPLY_ID => handle_instantiate_reply(deps, msg),
+        id => Err(StdError::generic_err(format!("Unknown reply id: {}", id))),
+    }
+}
+
+fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
+    // Handle the msg data and save the contract address
+    // See: https://github.com/CosmWasm/cw-plus/blob/main/packages/utils/src/parse_reply.rs
+    let res = parse_reply_instantiate_data(msg);
+    if res.is_ok() {
+        let res = res.unwrap();
+        // Save res.contract_address
+        set_snip24_reward_address(deps.storage, Some(deps.api.addr_canonicalize(&res.contract_address)?))?;
+    } else {
+        let err = res.err().unwrap().to_string();
+        return Err(StdError::generic_err(err));
+    }
+
+    Ok(Response::new())
 }
 
 pub fn try_comment(

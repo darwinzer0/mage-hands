@@ -26,6 +26,7 @@ pub static DEADMAN_KEY: &[u8] = b"dman";
 pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static REWARD_MESSAGES_KEY: &[u8] = b"rwms";
 pub static SNIP24_REWARD_KEY: &[u8] = b"rewa";
+pub static SNIP24_REWARD_ADDRESS_KEY: &[u8] = b"radd";
 
 pub static TOTAL_KEY: &[u8] = b"totl";
 pub static SPAM_COUNT_KEY: &[u8] = b"spac";
@@ -299,6 +300,14 @@ pub fn get_snip24_reward(storage: &dyn Storage, api: &dyn Api) -> StdResult<Opti
         }),
     };
     Ok(reward)
+}
+
+pub fn set_snip24_reward_address(storage: &mut dyn Storage, addr: Option<CanonicalAddr>) -> StdResult<()> {
+    set_bin_data(storage, SNIP24_REWARD_ADDRESS_KEY, &addr)
+}
+
+pub fn get_snip24_reward_address(storage: &dyn Storage) -> StdResult<Option<CanonicalAddr>> {
+    get_bin_data(storage, SNIP24_REWARD_ADDRESS_KEY)
 }
 
 pub fn set_total(storage: &mut dyn Storage, total: u128) -> StdResult<()> {

@@ -1,11 +1,5 @@
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Addr, Uint128, CanonicalAddr, };
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub struct InitialBalance {
-    pub address: Addr,
-    pub amount: Uint128,
-}
+use cosmwasm_std::{Addr, Uint128, CanonicalAddr, Binary, };
 
 pub const LINEAR_WEIGHT: u8 = 1;
 pub const SQRT_WEIGHT: u8 = 2;
@@ -13,7 +7,7 @@ pub const LOG_WEIGHT: u8 = 3;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
 pub struct Snip24RewardInit {
-    pub reward_snip24_code_id: u32,
+    pub reward_snip24_code_id: u64,
     pub reward_snip24_code_hash: String,
 
     // snip24 params
@@ -63,7 +57,7 @@ pub struct VestingEvent {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
 pub struct StoredSnip24RewardInit {
-    pub reward_snip24_code_id: u32,
+    pub reward_snip24_code_id: u64,
     pub reward_snip24_code_hash: String,
 
     // snip24 params
@@ -114,4 +108,31 @@ pub struct RewardMessage {
 pub struct StoredRewardMessage {
     pub threshold: u128,
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug,)]
+pub struct Snip24InstantiateMsg {
+    pub name: String,
+    pub admin: Option<Addr>,
+    pub symbol: String,
+    pub decimals: u8,
+    pub initial_balances: Option<Vec<InitialBalance>>,
+    pub prng_seed: Binary,
+    pub config: Option<InitConfig>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct InitialBalance {
+    pub address: Addr,
+    pub amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct InitConfig {
+    pub public_total_supply: Option<bool>,
+    pub enable_deposit: Option<bool>,
+    pub enable_redeem: Option<bool>,
+    pub enable_mint: Option<bool>,
+    pub enable_burn: Option<bool>,
 }
