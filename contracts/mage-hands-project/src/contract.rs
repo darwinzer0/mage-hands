@@ -1,16 +1,17 @@
+use std::cmp::{min,max};
+use primitive_types::U256;
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Env, Addr,
     Response, StdError, StdResult, Uint128, DepsMut, Deps, MessageInfo,
-    WasmMsg, SubMsg, CosmosMsg, Reply, 
+    WasmMsg, SubMsg, CosmosMsg, Reply, CanonicalAddr,
 };
 use rand::RngCore;
-
 use crate::msg::{
     ExecuteAnswer, ExecuteMsg, InstantiateMsg, PlatformExecuteMsg, QueryAnswer, QueryMsg, ResponseStatus,
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit};
+use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit, self, VestingReward};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -606,6 +607,64 @@ fn try_pay_out(
         msg,
     })?);
     Ok(resp)
+}
+
+fn calculate_contributor_snip24_rewards(
+    deps: Deps,
+    address: CanonicalAddr,
+) -> StdResult<Vec<VestingReward>> {
+    let result: Vec<VestingReward>;
+    let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
+    match snip24_reward_init {
+        Some(snip24_reward_init) => { 
+            let funder = get_funder(deps.storage, &address)?;
+            let valid_amount: u128;
+            if funder.amount < snip24_reward_init.minimum_contribution.u128() {
+                result = vec![];
+            } else {
+                let max_contribution = snip24_reward_init.maximum_contribution.u128();
+                if max_contribution == 0_u128 {
+                    valid_amount = funder.amount;
+                } else {
+                    valid_amount = min(funder.amount, max_contribution);
+                }
+
+                let total = get_total(deps.storage)?;
+
+                // assume linear allocation (TODO: others)
+                let total_reward_u256: U256 = U256::from(snip24_reward_init.amount.u128())
+                    .checked_mul(U256::from(snip24_reward_init.contributors_per_mille)).expect("Overflow when calculating reward")
+                    .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward")
+                    .checked_mul(U256::from(valid_amount)).expect("Overflow when calculating reward")
+                    .checked_div(U256::from(total)).expect("Div by zero when calculating reward");
+
+                // no vesting schedule for contributors
+                if snip24_reward_init.contributors_vesting_schedule.len() == 0 {
+                    result = vec![
+                        VestingReward {
+                            block: 0_u64,
+                            amount: total_reward_u256.as_u128(),
+                        }
+                    ];
+                } else {
+                    result = snip24_reward_init.contributors_vesting_schedule
+                        .into_iter()
+                        .map(|event| {
+                            let partial_reward_u256: U256 = U256::from(total_reward_u256)
+                                .checked_mul(U256::from(event.per_mille)).expect("Overflow when calculating reward")
+                                .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward");
+                            VestingReward {
+                                block: event.block,
+                                amount: partial_reward_u256.as_u128(),
+                            }
+                        })
+                        .collect();
+                }
+            }
+        },
+        None => { result = vec![]; }
+    };
+    Ok(result)
 }
 
 #[entry_point]

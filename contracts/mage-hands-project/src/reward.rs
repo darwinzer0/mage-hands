@@ -48,11 +48,18 @@ pub struct Snip24RewardInit {
     pub creator_addresses: Option<Vec<Addr>>,
 }
 
-// Vesting events indicate what block
+// Vesting events indicate what block a share of the reward becomes valid
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
 pub struct VestingEvent {
     pub block: u64,
     pub per_mille: u16,
+}
+
+// Vesting reward indicate how much the reward is at each block for a given contributor
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
+pub struct VestingReward {
+    pub block: u64,
+    pub amount: u128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
