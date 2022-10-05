@@ -667,6 +667,44 @@ fn calculate_contributor_snip24_rewards(
     Ok(result)
 }
 
+fn calculate_creator_snip24_allocation(
+    deps: Deps,
+) -> StdResult<Vec<VestingReward>> {
+    let result: Vec<VestingReward>;
+    let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
+    match snip24_reward_init {
+        Some(snip24_reward_init) => { 
+            let total_allocation_u256: U256 = U256::from(snip24_reward_init.amount.u128())
+                .checked_mul(U256::from(snip24_reward_init.creator_per_mille)).expect("Overflow when calculating reward")
+                .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward");
+            
+            if snip24_reward_init.creator_vesting_schedule.len() == 0 {
+                result = vec![
+                    VestingReward {
+                        block: 0_u64,
+                        amount: total_allocation_u256.as_u128(),
+                    }
+                ];
+            } else {
+                result = snip24_reward_init.creator_vesting_schedule
+                .into_iter()
+                .map(|event| {
+                    let partial_reward_u256: U256 = U256::from(total_allocation_u256)
+                        .checked_mul(U256::from(event.per_mille)).expect("Overflow when calculating reward")
+                        .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward");
+                    VestingReward {
+                        block: event.block,
+                        amount: partial_reward_u256.as_u128(),
+                    }
+                })
+                .collect();
+            }
+        },
+        None => { result = vec![]; }
+    };
+    Ok(result)
+}
+
 #[entry_point]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     match msg.id {
