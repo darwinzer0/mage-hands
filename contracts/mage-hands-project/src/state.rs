@@ -27,6 +27,7 @@ pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static REWARD_MESSAGES_KEY: &[u8] = b"rwms";
 pub static SNIP24_REWARD_KEY: &[u8] = b"rewa";
 pub static SNIP24_REWARD_ADDRESS_KEY: &[u8] = b"radd";
+pub static SNIP24_CREATOR_ALLOCATION_RECEIVED_KEY: &[u8] = b"scar";
 
 pub static TOTAL_KEY: &[u8] = b"totl";
 pub static SPAM_COUNT_KEY: &[u8] = b"spac";
@@ -93,6 +94,14 @@ pub fn set_creator(storage: &mut dyn Storage, creator: &CanonicalAddr) -> StdRes
 
 pub fn get_creator(storage: &dyn Storage) -> StdResult<CanonicalAddr> {
     get_bin_data(storage, CREATOR_KEY)
+}
+
+pub fn set_creator_snip24_allocation_received(storage: &mut dyn Storage, allocation_received: Vec<bool>) -> StdResult<()> {
+    set_bin_data(storage, SNIP24_CREATOR_ALLOCATION_RECEIVED_KEY, &allocation_received)
+}
+
+pub fn get_creator_snip24_allocation_received(storage: &dyn Storage) -> StdResult<Vec<bool>> {
+    get_bin_data(storage, SNIP24_CREATOR_ALLOCATION_RECEIVED_KEY)
 }
 
 pub fn set_title(storage: &mut dyn Storage, title: String) -> StdResult<()> {

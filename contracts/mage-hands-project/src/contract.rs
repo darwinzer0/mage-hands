@@ -22,7 +22,7 @@ use crate::state::{
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
     push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
-    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address,
+    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, set_creator_snip24_allocation_received, get_creator_snip24_allocation_received,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -73,7 +73,20 @@ pub fn instantiate(
     set_reward_messages(deps.storage, msg.reward_messages)?;
 
     validate_snip24_reward_init(msg.snip24_reward_init.clone())?;
-    set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init)?;
+    set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init.clone())?;
+    let snip24_allocation_received: Vec<bool>;
+    if msg.snip24_reward_init.is_none() {
+        snip24_allocation_received = vec![];
+    } else {
+        let snip24_reward_init = msg.snip24_reward_init.unwrap();
+        if snip24_reward_init.contributors_vesting_schedule.len() <= 1 {
+            snip24_allocation_received = vec![false];
+        } else {
+            snip24_allocation_received = snip24_reward_init.contributors_vesting_schedule.into_iter().map(|_| false).collect();
+        }
+    }
+    set_creator_snip24_allocation_received(deps.storage, snip24_allocation_received)?;
+
     set_snip24_reward_address(deps.storage, None)?;
 
     let goal = msg.goal.u128();
@@ -947,6 +960,20 @@ fn query_status_auth(
         pledged_message = Some(get_pledged_message(deps.storage));
         funded_message = Some(get_funded_message(deps.storage));
         reward_messages = get_reward_messages(deps.storage)?;
+
+        let creator_allocation = calculate_creator_snip24_allocation(deps)?;
+        let allocation_received = get_creator_snip24_allocation_received(deps.storage)?;
+        snip24_rewards = creator_allocation
+            .into_iter()
+            .enumerate()
+            .map(|(idx, reward)| {
+                VestingRewardStatus { 
+                    amount: Uint128::from(reward.amount), 
+                    block: reward.block, 
+                    received: allocation_received[idx],
+                }
+            })
+            .collect();
     } else {
         match stored_funder {
             Ok(stored_funder) => {
