@@ -11,7 +11,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit, self, VestingReward};
+use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit, VestingReward, VestingRewardStatus};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -369,7 +369,12 @@ fn try_receive(
             message = String::from("No coins sent");
         } else {
             let total = get_total(deps.storage)?;
-            let sender_address_raw = deps.api.addr_canonicalize(&info.sender.as_str())?;
+            let sender_address_raw = deps.api.addr_canonicalize(&from.as_str())?;
+
+            // make sure it is not the project creator
+            if sender_address_raw == get_creator(deps.storage)? {
+                return Err(StdError::generic_err("Cannot fund your own project"));
+            }
 
             let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
             let snip24_rewards_received: Vec<bool>;
@@ -905,7 +910,10 @@ fn query_status_auth(
         return Err(StdError::generic_err("Error getting status"));
     }
 
+    let sender_address_raw = deps.api.addr_canonicalize(&address.as_str())?;
     let creator = get_creator(deps.storage)?;
+    let is_creator = creator == sender_address_raw;
+
     let creator = deps.api.addr_humanize(&creator)?;
 
     let po = is_paid_out(deps.storage);
@@ -927,34 +935,53 @@ fn query_status_auth(
 
     let spam_count = get_spam_count(deps.storage)?;
 
-    let sender_address_raw = deps.api.addr_canonicalize(&address.as_str())?;
     let stored_funder = get_funder(deps.storage, &sender_address_raw);
 
     let mut pledged_message: Option<String> = None;
     let mut funded_message: Option<String> = None;
     let mut reward_messages: Vec<RewardMessage> = vec![];
+    let mut snip24_rewards: Vec<VestingRewardStatus> = vec![];
     let mut contribution: Option<Uint128> = None;
 
-    match stored_funder {
-        Ok(stored_funder) => {
-            if stored_funder.amount > 0 {
-                if status != EXPIRED {
-                    pledged_message = Some(get_pledged_message(deps.storage));
+    if is_creator {
+        pledged_message = Some(get_pledged_message(deps.storage));
+        funded_message = Some(get_funded_message(deps.storage));
+        reward_messages = get_reward_messages(deps.storage)?;
+    } else {
+        match stored_funder {
+            Ok(stored_funder) => {
+                if stored_funder.amount > 0 {
+                    if status != EXPIRED {
+                        pledged_message = Some(get_pledged_message(deps.storage));
+                    }
+                    if status == SUCCESSFUL && is_paid_out(deps.storage) {
+                        funded_message = Some(get_funded_message(deps.storage));
+                        reward_messages = get_reward_messages(deps.storage)?
+                            .into_iter()
+                            .filter(|reward_message| {
+                                stored_funder.amount >= reward_message.threshold.u128()
+                            })
+                            .collect();
+                    }
                 }
-                if status == SUCCESSFUL && is_paid_out(deps.storage) {
-                    funded_message = Some(get_funded_message(deps.storage));
-                    reward_messages = get_reward_messages(deps.storage)?
-                        .into_iter()
-                        .filter(|reward_message| {
-                            stored_funder.amount >= reward_message.threshold.u128()
-                        })
-                        .collect();
-                }
+                contribution = Some(Uint128::from(stored_funder.amount));
+
+                let contributor_rewards = calculate_contributor_snip24_rewards(deps, sender_address_raw)?;
+                snip24_rewards = contributor_rewards
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, reward)| {
+                        VestingRewardStatus { 
+                            amount: Uint128::from(reward.amount), 
+                            block: reward.block, 
+                            received: stored_funder.snip24_rewards_received[idx],
+                        }
+                    })
+                    .collect();
             }
-            contribution = Some(Uint128::from(stored_funder.amount));
-        }
-        Err(_) => {}
-    };
+            Err(_) => {}
+        };
+    }
 
     to_binary(&QueryAnswer::StatusAuth {
         creator,
@@ -972,6 +999,7 @@ fn query_status_auth(
         pledged_message,
         funded_message,
         reward_messages,
+        snip24_rewards,
         contribution,
     })
 }

@@ -62,6 +62,14 @@ pub struct VestingReward {
     pub amount: u128,
 }
 
+// Status of vesting rewards sent in status message
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
+pub struct VestingRewardStatus {
+    pub amount: Uint128,
+    pub block: u64,
+    pub received: bool,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
 pub struct StoredSnip24RewardInit {
     pub reward_snip24_code_id: u64,
