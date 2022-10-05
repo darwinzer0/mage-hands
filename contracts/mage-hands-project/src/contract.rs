@@ -371,7 +371,19 @@ fn try_receive(
             let total = get_total(deps.storage)?;
             let sender_address_raw = deps.api.addr_canonicalize(&info.sender.as_str())?;
 
-            add_funds(deps.storage, &sender_address_raw, anonymous, amount)?;
+            let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
+            let snip24_rewards_received: Vec<bool>;
+            if snip24_reward_init.is_none() {
+                snip24_rewards_received = vec![];
+            } else {
+                let snip24_reward_init = snip24_reward_init.unwrap();
+                if snip24_reward_init.contributors_vesting_schedule.len() <= 1 {
+                    snip24_rewards_received = vec![false];
+                } else {
+                    snip24_rewards_received = snip24_reward_init.contributors_vesting_schedule.into_iter().map(|_| false).collect();
+                }
+            }
+            add_funds(deps.storage, &sender_address_raw, anonymous, amount, snip24_rewards_received)?;
 
             let goal = get_goal(deps.storage)?;
 

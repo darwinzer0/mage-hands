@@ -342,6 +342,7 @@ pub struct StoredFunder {
     // stay anonymous to project owner
     pub anonymous: bool,
     pub amount: u128,
+    pub snip24_rewards_received: Vec<bool>,
 }
 
 pub fn set_funder(
@@ -350,6 +351,7 @@ pub fn set_funder(
     idx: u32,
     anonymous: bool,
     amount: u128,
+    snip24_rewards_received: Vec<bool>,
 ) -> StdResult<()> {
     set_bin_data(
         storage,
@@ -358,6 +360,7 @@ pub fn set_funder(
             idx,
             anonymous,
             amount,
+            snip24_rewards_received,
         },
     )
 }
@@ -379,6 +382,7 @@ pub fn add_funds(
     funder_addr: &CanonicalAddr,
     anonymous: bool,
     amount: u128,
+    snip24_rewards_received: Vec<bool>,
 ) -> StdResult<()> {
     // check if has previously put funds in
     let stored_funder = get_funder(storage, funder_addr);
@@ -390,11 +394,12 @@ pub fn add_funds(
                 stored_funder.idx,
                 anonymous,
                 stored_funder.amount + amount,
+                snip24_rewards_received,
             )?;
         }
         Err(_) => {
             let idx = push_funder(storage, funder_addr)?;
-            set_funder(storage, funder_addr, idx, anonymous, amount)?;
+            set_funder(storage, funder_addr, idx, anonymous, amount, snip24_rewards_received)?;
         }
     };
     let prev_total = get_total(storage)?;
@@ -408,7 +413,7 @@ pub fn clear_funds(storage: &mut dyn Storage, funder_addr: &CanonicalAddr) -> St
         let prev_total = get_total(storage)?;
         set_total(storage, prev_total - stored_funder.amount)?;
     }
-    set_funder(storage, funder_addr, stored_funder.idx, true, 0_u128)?;
+    set_funder(storage, funder_addr, stored_funder.idx, true, 0_u128, stored_funder.snip24_rewards_received)?;
     Ok(stored_funder.amount)
 }
 
