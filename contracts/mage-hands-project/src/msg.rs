@@ -84,6 +84,11 @@ pub enum ExecuteMsg {
     PayOut {
         padding: Option<String>,
     },
+    // claim a snip24 reward that has vested
+    ClaimReward {
+        idx: u32,
+        padding: Option<String>,
+    },
     // comment on the project
     Comment {
         comment: String,
@@ -135,6 +140,10 @@ pub enum ExecuteAnswer {
         msg: String,
     },
     PayOut {
+        status: ResponseStatus,
+        msg: String,
+    },
+    ClaimReward {
         status: ResponseStatus,
         msg: String,
     },

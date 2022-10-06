@@ -4,6 +4,7 @@ use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Env, Addr,
     Response, StdError, StdResult, Uint128, DepsMut, Deps, MessageInfo,
     WasmMsg, SubMsg, CosmosMsg, Reply, CanonicalAddr,
+    Storage, Api,
 };
 use rand::RngCore;
 use crate::msg::{
@@ -22,7 +23,7 @@ use crate::state::{
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
     push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
-    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, set_creator_snip24_allocation_received, get_creator_snip24_allocation_received,
+    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, set_creator_snip24_allocation_received, get_creator_snip24_allocation_received, set_funder,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -208,6 +209,7 @@ pub fn execute(
         } => try_receive(deps, env, info, sender, from, amount, msg),
         ExecuteMsg::Refund { .. } => try_refund(deps, env, info),
         ExecuteMsg::PayOut { .. } => try_pay_out(deps, env, info),
+        ExecuteMsg::ClaimReward { idx, .. } => try_claim_reward(deps, env, info, idx),
         ExecuteMsg::Comment { comment, .. } => try_comment(deps, env, info, comment),
         ExecuteMsg::FlagSpam { flag, .. } => try_flag_spam(deps, env, info, flag),
         ExecuteMsg::GenerateViewingKey { entropy, .. } => {
@@ -561,7 +563,7 @@ fn try_pay_out(
                 config.snip20_hash, 
                 deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
             )?);
-            msg = format!("Pay out {} uscrt", total);
+            msg = format!("Pay out {} tokens", total);
     
             paid_out(deps.storage)?;
 
@@ -640,14 +642,15 @@ fn try_pay_out(
 }
 
 fn calculate_contributor_snip24_rewards(
-    deps: Deps,
+    storage: &dyn Storage,
+    api: &dyn Api,
     address: CanonicalAddr,
 ) -> StdResult<Vec<VestingReward>> {
     let result: Vec<VestingReward>;
-    let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
+    let snip24_reward_init = get_snip24_reward(storage, api)?;
     match snip24_reward_init {
         Some(snip24_reward_init) => { 
-            let funder = get_funder(deps.storage, &address)?;
+            let funder = get_funder(storage, &address)?;
             let valid_amount: u128;
             if funder.amount < snip24_reward_init.minimum_contribution.u128() {
                 result = vec![];
@@ -659,7 +662,7 @@ fn calculate_contributor_snip24_rewards(
                     valid_amount = min(funder.amount, max_contribution);
                 }
 
-                let total = get_total(deps.storage)?;
+                let total = get_total(storage)?;
 
                 // assume linear allocation (TODO: others)
                 let total_reward_u256: U256 = U256::from(snip24_reward_init.amount.u128())
@@ -698,10 +701,11 @@ fn calculate_contributor_snip24_rewards(
 }
 
 fn calculate_creator_snip24_allocation(
-    deps: Deps,
+    storage: &dyn Storage,
+    api: &dyn Api,
 ) -> StdResult<Vec<VestingReward>> {
     let result: Vec<VestingReward>;
-    let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
+    let snip24_reward_init = get_snip24_reward(storage, api)?;
     match snip24_reward_init {
         Some(snip24_reward_init) => { 
             let total_allocation_u256: U256 = U256::from(snip24_reward_init.amount.u128())
@@ -735,28 +739,121 @@ fn calculate_creator_snip24_allocation(
     Ok(result)
 }
 
-#[entry_point]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-    match msg.id {
-        SNIP24_INSTANTIATE_REPLY_ID => handle_instantiate_reply(deps, msg),
-        id => Err(StdError::generic_err(format!("Unknown reply id: {}", id))),
-    }
-}
+fn try_claim_reward(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    idx: u32,
+) -> StdResult<Response> {
+    let response_status;
+    let msg;
+    let idx: usize = idx as usize;
 
-fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
-    // Handle the msg data and save the contract address
-    // See: https://github.com/CosmWasm/cw-plus/blob/main/packages/utils/src/parse_reply.rs
-    let res = parse_reply_instantiate_data(msg);
-    if res.is_ok() {
-        let res = res.unwrap();
-        // Save res.contract_address
-        set_snip24_reward_address(deps.storage, Some(deps.api.addr_canonicalize(&res.contract_address)?))?;
+    let mut transfer_message: Option<CosmosMsg> = None;
+    let status = get_status(deps.storage)?;
+    if is_paid_out(deps.storage) {
+        let sender_address_raw = deps.api.addr_canonicalize(&info.sender.as_str())?;
+        let is_creator = get_creator(deps.storage)? == sender_address_raw;
+        if is_creator {
+            let creator_allocation = calculate_creator_snip24_allocation(deps.storage, deps.api)?;
+            let mut allocation_received = get_creator_snip24_allocation_received(deps.storage)?;
+            let snip24_rewards: Vec<VestingRewardStatus> = creator_allocation
+                .into_iter()
+                .enumerate()
+                .map(|(index, reward)| {
+                    VestingRewardStatus { 
+                        amount: Uint128::from(reward.amount), 
+                        block: reward.block, 
+                        received: allocation_received[index],
+                    }
+                })
+                .collect();
+            if snip24_rewards[idx].received {
+                response_status = Failure;
+                msg = String::from("Already claimed reward");
+            } else if env.block.height < snip24_rewards[idx].block {
+                response_status = Failure;
+                msg = String::from("Vesting time has not been reached");
+            } else {
+                let config = get_config(deps.storage)?;
+                transfer_message = Some(transfer_msg(
+                    info.sender.clone().into_string(), 
+                    Uint128::from(snip24_rewards[idx].amount.u128()), 
+                    None, 
+                    None, 
+                    256, 
+                    config.snip20_hash, 
+                    deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
+                )?);
+ 
+                allocation_received[idx] = true;
+                set_creator_snip24_allocation_received(deps.storage, allocation_received)?;
+
+                response_status = Success;
+                msg = format!("Receive {} tokens", snip24_rewards[idx].amount.u128());
+            }
+        } else { // !is_creator
+            let mut funder = get_funder(deps.storage, &sender_address_raw)?;
+            let contributor_reward = calculate_contributor_snip24_rewards(deps.storage, deps.api, sender_address_raw.clone())?;
+            let snip24_rewards: Vec<VestingRewardStatus> = contributor_reward
+                .into_iter()
+                .enumerate()
+                .map(|(index, reward)| {
+                    VestingRewardStatus {
+                        amount: Uint128::from(reward.amount),
+                        block: reward.block,
+                        received: funder.snip24_rewards_received[index],
+                    }
+                })
+                .collect();
+            
+            if snip24_rewards[idx].received {
+                response_status = Failure;
+                msg = String::from("Already claimed reward");
+            } else if env.block.height < snip24_rewards[idx].block {
+                response_status = Failure;
+                msg = String::from("Vesting time has not been reached");
+            } else {
+                let config = get_config(deps.storage)?;
+                transfer_message = Some(transfer_msg(
+                    info.sender.clone().into_string(), 
+                    Uint128::from(snip24_rewards[idx].amount.u128()), 
+                    None, 
+                    None, 
+                    256, 
+                    config.snip20_hash, 
+                    deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
+                )?);
+
+                funder.snip24_rewards_received[idx] = true;
+                set_funder(
+                    deps.storage, 
+                    &sender_address_raw, 
+                    funder.idx, 
+                    funder.anonymous, 
+                    funder.amount, 
+                    funder.snip24_rewards_received
+                )?;
+
+                response_status = Success;
+                msg = format!("Receive {} tokens", snip24_rewards[idx].amount.u128());
+            }
+        }
     } else {
-        let err = res.err().unwrap().to_string();
-        return Err(StdError::generic_err(err));
+        response_status = Failure;
+        msg = String::from("Cannot claim reward");
     }
 
-    Ok(Response::new())
+    let mut submessages: Vec<SubMsg> = vec![];
+    if transfer_message.is_some() {
+        submessages.push(SubMsg::new(transfer_message.unwrap()));
+    }
+    let mut resp = Response::new().add_submessages(submessages);
+    resp.data = Some(to_binary(&ExecuteAnswer::ClaimReward {
+        status: response_status,
+        msg,
+    })?);
+    Ok(resp)
 }
 
 pub fn try_comment(
@@ -803,6 +900,30 @@ pub fn try_flag_spam(
         msg: String::from("Flag spam updated"),
     })?);
     Ok(resp)
+}
+
+#[entry_point]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    match msg.id {
+        SNIP24_INSTANTIATE_REPLY_ID => handle_instantiate_reply(deps, msg),
+        id => Err(StdError::generic_err(format!("Unknown reply id: {}", id))),
+    }
+}
+
+fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> StdResult<Response> {
+    // Handle the msg data and save the contract address
+    // See: https://github.com/CosmWasm/cw-plus/blob/main/packages/utils/src/parse_reply.rs
+    let res = parse_reply_instantiate_data(msg);
+    if res.is_ok() {
+        let res = res.unwrap();
+        // Save res.contract_address
+        set_snip24_reward_address(deps.storage, Some(deps.api.addr_canonicalize(&res.contract_address)?))?;
+    } else {
+        let err = res.err().unwrap().to_string();
+        return Err(StdError::generic_err(err));
+    }
+
+    Ok(Response::new())
 }
 
 #[entry_point]
@@ -961,7 +1082,7 @@ fn query_status_auth(
         funded_message = Some(get_funded_message(deps.storage));
         reward_messages = get_reward_messages(deps.storage)?;
 
-        let creator_allocation = calculate_creator_snip24_allocation(deps)?;
+        let creator_allocation = calculate_creator_snip24_allocation(deps.storage, deps.api)?;
         let allocation_received = get_creator_snip24_allocation_received(deps.storage)?;
         snip24_rewards = creator_allocation
             .into_iter()
@@ -993,7 +1114,7 @@ fn query_status_auth(
                 }
                 contribution = Some(Uint128::from(stored_funder.amount));
 
-                let contributor_rewards = calculate_contributor_snip24_rewards(deps, sender_address_raw)?;
+                let contributor_rewards = calculate_contributor_snip24_rewards(deps.storage, deps.api, sender_address_raw)?;
                 snip24_rewards = contributor_rewards
                     .into_iter()
                     .enumerate()
