@@ -25,6 +25,7 @@ pub static DEADLINE_KEY: &[u8] = b"dead";
 pub static DEADMAN_KEY: &[u8] = b"dman";
 pub static CATEGORIES_KEY: &[u8] = b"cate";
 pub static REWARD_MESSAGES_KEY: &[u8] = b"rwms";
+pub static PLEDGE_MIN_MAX_KEY: &[u8] = b"plmm";
 pub static SNIP24_REWARD_KEY: &[u8] = b"rewa";
 pub static SNIP24_REWARD_ADDRESS_KEY: &[u8] = b"radd";
 pub static SNIP24_CREATOR_ALLOCATION_RECEIVED_KEY: &[u8] = b"scar";
@@ -205,6 +206,26 @@ pub fn set_categories(storage: &mut dyn Storage, categories: Vec<u16>) -> StdRes
 
 pub fn get_categories(storage: &dyn Storage) -> StdResult<Vec<u16>> {
     get_bin_data(storage, CATEGORIES_KEY)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct PledgeMinMax {
+    pub min: u128,
+    pub max: u128,
+}
+
+pub fn set_pledge_minmax(storage: &mut dyn Storage, min: u128, max: u128) -> StdResult<()> {
+    if min > max {
+        return Err(StdError::generic_err("Minimum pledge cannot be greater than maximum pledge"));
+    }
+    set_bin_data(storage, PLEDGE_MIN_MAX_KEY, &PledgeMinMax{
+        min,
+        max,
+    })
+}
+
+pub fn get_pledge_minmax(storage: &dyn Storage) -> StdResult<PledgeMinMax> {
+    get_bin_data(storage, PLEDGE_MIN_MAX_KEY)
 }
 
 pub fn set_reward_messages(storage: &mut dyn Storage, messages: Vec<RewardMessage>) -> StdResult<()> {
@@ -395,18 +416,26 @@ pub fn add_funds(
 ) -> StdResult<()> {
     // check if has previously put funds in
     let stored_funder = get_funder(storage, funder_addr);
+    let pledge_minmax = get_pledge_minmax(storage)?;
     match stored_funder {
         Ok(stored_funder) => {
+            let new_amount = stored_funder.amount + amount;
+            if new_amount < pledge_minmax.min || new_amount > pledge_minmax.max {
+                return Err(StdError::generic_err(format!("Your pledge is not within the bounds of ({},{})", pledge_minmax.min, pledge_minmax.max)));
+            }
             set_funder(
                 storage,
                 funder_addr,
                 stored_funder.idx,
                 anonymous,
-                stored_funder.amount + amount,
+                new_amount,
                 snip24_rewards_received,
             )?;
         }
         Err(_) => {
+            if amount < pledge_minmax.min || amount > pledge_minmax.max {
+                return Err(StdError::generic_err(format!("Your pledge is not within the bounds of ({},{})", pledge_minmax.min, pledge_minmax.max)));
+            }
             let idx = push_funder(storage, funder_addr)?;
             set_funder(storage, funder_addr, idx, anonymous, amount, snip24_rewards_received)?;
         }

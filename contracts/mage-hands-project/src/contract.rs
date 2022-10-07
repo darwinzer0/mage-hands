@@ -23,7 +23,9 @@ use crate::state::{
     set_status, set_title, set_total, write_viewing_key, EXPIRED, FUNDRAISING,
     SUCCESSFUL, set_config, get_config, set_deadman, get_deadman,
     push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
-    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, set_creator_snip24_allocation_received, get_creator_snip24_allocation_received, set_funder,
+    get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, 
+    set_creator_snip24_allocation_received, get_creator_snip24_allocation_received, set_funder, 
+    set_pledge_minmax,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -72,6 +74,7 @@ pub fn instantiate(
     let funded_message = msg.funded_message.unwrap_or_else(|| String::from(""));
     set_funded_message(deps.storage, funded_message)?;
     set_reward_messages(deps.storage, msg.reward_messages)?;
+    set_pledge_minmax(deps.storage, msg.minimum_pledge.u128(), msg.maximum_pledge.u128())?;
 
     validate_snip24_reward_init(msg.snip24_reward_init.clone())?;
     set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init.clone())?;
@@ -751,7 +754,7 @@ fn try_claim_reward(
 
     let mut transfer_message: Option<CosmosMsg> = None;
     let status = get_status(deps.storage)?;
-    if is_paid_out(deps.storage) {
+    if status == SUCCESSFUL && is_paid_out(deps.storage) {
         let sender_address_raw = deps.api.addr_canonicalize(&info.sender.as_str())?;
         let is_creator = get_creator(deps.storage)? == sender_address_raw;
         if is_creator {
