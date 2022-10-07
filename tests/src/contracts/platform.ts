@@ -12,9 +12,9 @@ export type PlatformInitMsg = {
 }
 
 export type PledgeMinMax = {
-    token_addr: string,
-    min: string,
-    max: string,
+    token_addr: string;
+    min: string;
+    max: string;
 }
 
 export type PlatformCreateMsg = {

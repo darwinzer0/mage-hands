@@ -74,6 +74,9 @@ export type ProjectStatusResult = {
     description: string;
     categories: number[];
     spam_count: number;
+    snip20_address: string,
+    minimum_pledge: string,
+    maximum_pledge: string,
     pledged_message?: string;
     funded_message?: string;
     reward_messages?: RewardMessage[];
