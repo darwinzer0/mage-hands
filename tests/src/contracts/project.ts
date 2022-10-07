@@ -19,6 +19,8 @@ export type ProjectInitMsg = {
     source_hash: string;
     snip20_contract: string;
     snip20_hash: string;
+    minimum_pledge: string;
+    maximum_pledge: string;
     padding?: string;
 }
 

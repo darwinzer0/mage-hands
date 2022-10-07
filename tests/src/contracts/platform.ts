@@ -7,7 +7,14 @@ export type PlatformInitMsg = {
     owner?: string;
     project_contract_code_id: number;
     project_contract_code_hash: string;
+    token_min_max_pledges: PledgeMinMax[];
     deadman?: number;
+}
+
+export type PledgeMinMax = {
+    token_addr: string,
+    min: string,
+    max: string,
 }
 
 export type PlatformCreateMsg = {
