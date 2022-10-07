@@ -27,6 +27,9 @@ pub struct ProjectInstantiateMsg {
 
     pub snip20_contract: Addr,
     pub snip20_hash: String,
+    // minimum and maximum pledge amounts
+    pub minimum_pledge: Uint128,
+    pub maximum_pledge: Uint128,
 
     // new snip24
     pub snip24_reward_init: Option<Snip24RewardInit>,

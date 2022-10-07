@@ -13,6 +13,14 @@ pub struct InstantiateMsg {
 
     // deadman timeout for successful projects
     pub deadman: Option<u64>,
+    pub token_min_max_pledges: Vec<PledgeMinMax>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct PledgeMinMax {
+    pub token_addr: Addr,
+    pub min: Uint128,
+    pub max: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -41,6 +49,7 @@ pub enum ExecuteMsg {
         project_contract_code_id: Option<u64>,
         project_contract_code_hash: Option<String>,
         deadman: Option<u64>,
+        token_min_max_pledges: Option<Vec<PledgeMinMax>>,
         padding: Option<String>,
     },
     // register a project contract

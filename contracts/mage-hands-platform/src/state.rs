@@ -18,7 +18,15 @@ pub struct Config {
     pub project_contract_code_id: u64,
     pub project_contract_code_hash: Vec<u8>,
     pub contract_address: CanonicalAddr,
+    pub token_min_max_pledges: Vec<StoredPledgeMinMax>,
     pub deadman: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct StoredPledgeMinMax {
+    pub token_addr: CanonicalAddr,
+    pub min: u128,
+    pub max: u128,
 }
 
 pub fn set_config(
@@ -27,6 +35,7 @@ pub fn set_config(
     project_contract_code_id: u64,
     project_contract_code_hash: Vec<u8>,
     contract_address: CanonicalAddr,
+    token_min_max_pledges: Vec<StoredPledgeMinMax>,
     deadman: u64,
 ) -> StdResult<()> {
     let config = Config {
@@ -34,6 +43,7 @@ pub fn set_config(
         project_contract_code_id,
         project_contract_code_hash,
         contract_address,
+        token_min_max_pledges,
         deadman,
     };
     set_bin_data(storage, CONFIG_KEY, &config)

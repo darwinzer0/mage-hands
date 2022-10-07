@@ -1,10 +1,11 @@
+use crate::msg::PledgeMinMax;
 use crate::msg::{
     ContractInfo, ExecuteAnswer, ExecuteMsg, InstantiateMsg, QueryAnswer, QueryMsg, ResponseStatus::Success, space_pad,
 };
 use crate::project::{ProjectInstantiateMsg, Snip24RewardInit, RewardMessage, };
 use crate::state::{
     add_project, get_config, get_projects, is_creating_project, project_count,
-    set_config, set_creating_project, Config, StoredContractInfo,
+    set_config, set_creating_project, Config, StoredContractInfo, StoredPledgeMinMax,
 };
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Env, DepsMut, MessageInfo, Addr,
@@ -32,12 +33,23 @@ pub fn instantiate(
         owner = deps.api.addr_canonicalize(info.sender.as_str())?;
     }
 
+    if msg.token_min_max_pledges.len() < 1 {
+        return Err(StdError::generic_err("You must set at least one snip20 contribution token addr"));
+    }
+
     set_config(
         deps.storage,
         owner,
         msg.project_contract_code_id,
         msg.project_contract_code_hash.as_bytes().to_vec(),
         deps.api.addr_canonicalize(env.contract.address.as_str())?,
+        msg.token_min_max_pledges.into_iter().map(|t| {
+            StoredPledgeMinMax {
+                token_addr: deps.api.addr_canonicalize(&t.token_addr.as_str()).unwrap(),
+                min: t.min.u128(),
+                max: t.max.u128(),
+            }
+        }).collect(),
         msg.deadman.unwrap_or(DEFAULT_DEADMAN),
     )?;
 
@@ -99,6 +111,7 @@ pub fn execute(
             owner,
             project_contract_code_id,
             project_contract_code_hash,
+            token_min_max_pledges,
             deadman,
             ..
         } => try_config(
@@ -108,6 +121,7 @@ pub fn execute(
             owner,
             project_contract_code_id,
             project_contract_code_hash,
+            token_min_max_pledges,
             deadman,
         ),
         ExecuteMsg::Register {
@@ -138,9 +152,23 @@ pub fn try_create(
     entropy: String,
 ) -> StdResult<Response> {
     let msg;
-
-    let config: Config = get_config(deps.storage)?;
     let mut messages = vec![];
+    let config: Config = get_config(deps.storage)?;
+    let token_min_max_pledges: Vec<PledgeMinMax> = config.token_min_max_pledges
+        .into_iter()
+        .map(|t| {
+            PledgeMinMax {
+                token_addr: deps.api.addr_humanize(&t.token_addr).unwrap(),
+                min: Uint128::from(t.min),
+                max: Uint128::from(t.max),
+            }
+        })
+        .filter(|t| { t.token_addr == snip20_contract })
+        .collect();
+
+    if token_min_max_pledges.len() < 1 {
+        return Err(StdError::generic_err(format!("{} is not an allowed snip20 contract", snip20_contract.to_string())));
+    }
 
     set_creating_project(deps.storage, true)?;
 
@@ -161,6 +189,8 @@ pub fn try_create(
         source_hash: env.contract.code_hash,
         snip20_contract,
         snip20_hash,
+        minimum_pledge: token_min_max_pledges[0].min,
+        maximum_pledge: token_min_max_pledges[0].max,
         snip24_reward_init,
         padding: None,
     };
@@ -230,6 +260,7 @@ fn try_config(
     owner: Option<Addr>,
     project_contract_code_id: Option<u64>,
     project_contract_code_hash: Option<String>,
+    token_min_max_pledges: Option<Vec<PledgeMinMax>>,
     deadman: Option<u64>,
 ) -> StdResult<Response> {
     let status;
@@ -254,6 +285,22 @@ fn try_config(
         config.project_contract_code_hash = project_contract_code_hash.unwrap().as_bytes().to_vec();
     }
 
+    if token_min_max_pledges.is_some() {
+        let token_min_max_pledges = token_min_max_pledges.unwrap();
+        if token_min_max_pledges.len() < 1 {
+            return Err(StdError::generic_err("You must set at least one snip20 contribution token addr"));
+        }
+        config.token_min_max_pledges = token_min_max_pledges
+            .into_iter()
+            .map(|t| {
+                StoredPledgeMinMax {
+                    token_addr: deps.api.addr_canonicalize(&t.token_addr.as_str()).unwrap(),
+                    min: t.min.u128(),
+                    max: t.max.u128(),
+                }
+            }).collect();
+    }
+
     if deadman.is_some() {
         config.deadman = deadman.unwrap();
     }
@@ -264,6 +311,7 @@ fn try_config(
         config.project_contract_code_id.clone(),
         config.project_contract_code_hash.clone(),
         config.contract_address,
+        config.token_min_max_pledges,
         config.deadman,
     )?;
 
