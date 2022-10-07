@@ -25,7 +25,7 @@ use crate::state::{
     push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
     get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, 
     set_creator_snip24_allocation_received, get_creator_snip24_allocation_received, set_funder, 
-    set_pledge_minmax,
+    set_pledge_minmax, get_pledge_minmax,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -1013,6 +1013,10 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
 
     let spam_count = get_spam_count(deps.storage)?;
 
+    let config = get_config(deps.storage)?;
+    let snip20_address = deps.api.addr_humanize(&config.snip20_contract)?;
+    let minmax_pledge = get_pledge_minmax(deps.storage)?;
+
     to_binary(&QueryAnswer::Status {
         creator,
         status: status_string,
@@ -1026,6 +1030,9 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
         description,
         categories,
         spam_count,
+        snip20_address,
+        minimum_pledge: Uint128::from(minmax_pledge.min),
+        maximum_pledge: Uint128::from(minmax_pledge.max),
     })
 }
 
@@ -1071,6 +1078,10 @@ fn query_status_auth(
     let categories = get_categories(deps.storage)?;
 
     let spam_count = get_spam_count(deps.storage)?;
+
+    let config = get_config(deps.storage)?;
+    let snip20_address = deps.api.addr_humanize(&config.snip20_contract)?;
+    let minmax_pledge = get_pledge_minmax(deps.storage)?;
 
     let stored_funder = get_funder(deps.storage, &sender_address_raw);
 
@@ -1147,6 +1158,9 @@ fn query_status_auth(
         description,
         categories,
         spam_count,
+        snip20_address,
+        minimum_pledge: Uint128::from(minmax_pledge.min),
+        maximum_pledge: Uint128::from(minmax_pledge.max),
         pledged_message,
         funded_message,
         reward_messages,
