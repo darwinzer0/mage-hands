@@ -1,4 +1,4 @@
-use std::cmp::{min,max};
+use std::cmp::{min,};
 use primitive_types::U256;
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Env, Addr,
@@ -778,15 +778,21 @@ fn try_claim_reward(
                 response_status = Failure;
                 msg = String::from("Vesting time has not been reached");
             } else {
-                let config = get_config(deps.storage)?;
+                let reward_snip24_address = get_snip24_reward_address(deps.storage)?;
+                let reward_snip24_init = get_snip24_reward(deps.storage, deps.api)?;
+                if reward_snip24_address.is_none() || reward_snip24_init.is_none() {
+                    return Err(StdError::generic_err("No reward snip24 contract"));
+                }
+                let snip24_reward_address = reward_snip24_address.unwrap();
+                let snip24_reward_init = reward_snip24_init.unwrap();
                 transfer_message = Some(transfer_msg(
                     info.sender.clone().into_string(), 
                     Uint128::from(snip24_rewards[idx].amount.u128()), 
                     None, 
                     None, 
                     256, 
-                    config.snip20_hash, 
-                    deps.api.addr_humanize(&config.snip20_contract)?.into_string(),
+                    snip24_reward_init.reward_snip24_code_hash, 
+                    deps.api.addr_humanize(&snip24_reward_address)?.into_string(),
                 )?);
  
                 allocation_received[idx] = true;

@@ -36,13 +36,3 @@ pub fn get_random_number_generator(storage: &dyn Storage) -> ChaChaRng {
     let entropy_pool = get_current_entropy_pool(storage);
     ChaChaRng::from_seed(entropy_pool)
 }
-
-pub fn sha_256(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    let hash = hasher.finalize();
-
-    let mut result = [0u8; 32];
-    result.copy_from_slice(hash.as_slice());
-    result
-}
