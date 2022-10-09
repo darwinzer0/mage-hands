@@ -56,25 +56,25 @@ export type PlatformProjectsResult = {
 }
 
 export class PlatformContractInstance extends ContractInstance {
-    async instantiate(secretjs: SecretNetworkClient, initMsg: PlatformInitMsg, label: string): Promise<string> {
-        return super.instantiate(secretjs, initMsg, label, 100_000);
+    async instantiate(secretjs: SecretNetworkClient, initMsg: PlatformInitMsg, label: string, gasLimit: number = 150_000): Promise<string> {
+        return super.instantiate(secretjs, initMsg, label, gasLimit);
     }
 
-    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg): Promise<Tx> {
+    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { create: createMsg };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async config(secretjs: SecretNetworkClient, configMsg: PlatformConfigMsg): Promise<Tx> {
+    async config(secretjs: SecretNetworkClient, configMsg: PlatformConfigMsg, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { config: configMsg };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async register(secretjs: SecretNetworkClient, registerMsg: PlatformRegisterMsg): Promise<Tx> {
+    async register(secretjs: SecretNetworkClient, registerMsg: PlatformRegisterMsg, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { register: registerMsg };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 

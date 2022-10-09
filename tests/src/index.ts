@@ -49,8 +49,8 @@ const setupSScrtContract = async (secretjs: SecretNetworkClient) => {
     console.log(sscrtCode.codeId, sscrtCode.codeHash);
 
     console.log("Instantiating sSCRT contract");
-    contracts.snip20 = new Snip20ContractInstance("sSCRT", sscrtCode);
-    const { snip20 } = contracts;
+    contracts.sscrt = new Snip20ContractInstance("sSCRT", sscrtCode);
+    const { sscrt } = contracts;
     const sscrtInitMsg = {
         name: "Secret SCRT",
         admin: a.signer.address,
@@ -67,32 +67,32 @@ const setupSScrtContract = async (secretjs: SecretNetworkClient) => {
         },
         supported_denoms: ["uscrt"],
     };
-    await snip20.instantiate(secretjs, sscrtInitMsg, `sSCRT-${sscrtCode.codeId}`);
-    console.log(snip20.address);
+    await sscrt.instantiate(secretjs, sscrtInitMsg, `sSCRT-${sscrtCode.codeId}`);
+    console.log(sscrt.address);
 
     console.log("Seeding a, b, c, d with 1,000,000 sSCRT");
-    await snip20.deposit(a.signer, "1000000000000");
-    await snip20.deposit(b.signer, "1000000000000");
-    await snip20.deposit(c.signer, "1000000000000");
-    await snip20.deposit(d.signer, "1000000000000");
+    await sscrt.deposit(a.signer, "1000000000000");
+    await sscrt.deposit(b.signer, "1000000000000");
+    await sscrt.deposit(c.signer, "1000000000000");
+    await sscrt.deposit(d.signer, "1000000000000");
 
     console.log("Creating sSCRT viewing keys for a, b, c, d")
-    a.sScrt.viewingKey = await snip20.createViewingKey(a.signer);
-    b.sScrt.viewingKey = await snip20.createViewingKey(b.signer);
-    c.sScrt.viewingKey = await snip20.createViewingKey(c.signer);
-    d.sScrt.viewingKey = await snip20.createViewingKey(d.signer);
+    a.sScrt.viewingKey = await sscrt.createViewingKey(a.signer);
+    b.sScrt.viewingKey = await sscrt.createViewingKey(b.signer);
+    c.sScrt.viewingKey = await sscrt.createViewingKey(c.signer);
+    d.sScrt.viewingKey = await sscrt.createViewingKey(d.signer);
 
     console.log("Creating sSCRT query permits for a, b, c, d");
-    a.sScrt.queryPermit = await newPermit(a.wallet, a.wallet.address, CHAIN_ID, "test", [snip20.address], ["owner", "balance"], false);
+    a.sScrt.queryPermit = await newPermit(a.wallet, a.wallet.address, CHAIN_ID, "test", [sscrt.address], ["owner", "balance"], false);
     console.log(a.sScrt.queryPermit);
-    b.sScrt.queryPermit = await newPermit(b.wallet, b.wallet.address, CHAIN_ID, "test", [snip20.address], ["owner", "balance"], false);
+    b.sScrt.queryPermit = await newPermit(b.wallet, b.wallet.address, CHAIN_ID, "test", [sscrt.address], ["owner", "balance"], false);
     console.log(b.sScrt.queryPermit);
-    c.sScrt.queryPermit = await newPermit(c.wallet, c.wallet.address, CHAIN_ID, "test", [snip20.address], ["owner", "balance"], false);
+    c.sScrt.queryPermit = await newPermit(c.wallet, c.wallet.address, CHAIN_ID, "test", [sscrt.address], ["owner", "balance"], false);
     console.log(c.sScrt.queryPermit);
-    d.sScrt.queryPermit = await newPermit(d.wallet, d.wallet.address, CHAIN_ID, "test", [snip20.address], ["owner", "balance"], false);
+    d.sScrt.queryPermit = await newPermit(d.wallet, d.wallet.address, CHAIN_ID, "test", [sscrt.address], ["owner", "balance"], false);
     console.log(d.sScrt.queryPermit);
 
-    await printAllSnip20Balances(snip20);
+    await printAllSnip20Balances(sscrt);
 }
 
 //

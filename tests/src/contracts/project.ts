@@ -89,49 +89,49 @@ export type RewardMessage = {
 }
 
 export class ProjectContractInstance extends ContractInstance {
-    async instantiate(secretjs: SecretNetworkClient, initMsg: ProjectInitMsg, label: string): Promise<string> {
-        return super.instantiate(secretjs, initMsg, label, 100_000);
+    async instantiate(secretjs: SecretNetworkClient, initMsg: ProjectInitMsg, label: string, gasLimit: number = 150_000): Promise<string> {
+        return super.instantiate(secretjs, initMsg, label, gasLimit);
     }
 
-    async changeText(secretjs: SecretNetworkClient, changeTextMsg: ProjectChangeTextMsg): Promise<Tx> {
+    async changeText(secretjs: SecretNetworkClient, changeTextMsg: ProjectChangeTextMsg, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { change_text: changeTextMsg };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async refund(secretjs: SecretNetworkClient): Promise<Tx> {
+    async refund(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { refund: { padding: "=========" } };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async cancel(secretjs: SecretNetworkClient): Promise<Tx> {
+    async cancel(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { cancel: { padding: "=========" } };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async comment(secretjs: SecretNetworkClient, comment: string): Promise<Tx> {
+    async comment(secretjs: SecretNetworkClient, comment: string, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { comment: { comment, padding: "=========" }};
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async flag_spam(secretjs: SecretNetworkClient, flag: boolean): Promise<Tx> {
+    async flag_spam(secretjs: SecretNetworkClient, flag: boolean, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { flag_spam: { flag, padding: "=========" }};
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async payOut(secretjs: SecretNetworkClient): Promise<Tx> {
+    async payOut(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { pay_out: { padding: "=========" } };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async generateViewingKey(secretjs: SecretNetworkClient): Promise<Tx> {
+    async generateViewingKey(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { generate_viewing_key: { entropy: entropy(), padding: "=========" } };
-        const tx = await this.exec(secretjs, msg, 100_000);
+        const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 

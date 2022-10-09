@@ -1,4 +1,5 @@
-import { SecretNetworkClient, fromUtf8, Permit, Tx} from "secretjs";
+import { SecretNetworkClient, fromUtf8, Permit, Tx, } from "secretjs";
+import { MsgExecuteContractResponse } from "secretjs/dist/protobuf_stuff/secret/compute/v1beta1/msg";
 import { entropy } from "../utils";
 import { ContractInstance } from "./contracts";
 
@@ -32,25 +33,25 @@ export type Snip20BalanceResult = {
 
 export class Snip20ContractInstance extends ContractInstance {
     async instantiate(secretjs: SecretNetworkClient, initMsg: Snip20InitMsg, label: string): Promise<string> {
-        return super.instantiate(secretjs, initMsg, label, 100_000);
+        return super.instantiate(secretjs, initMsg, label, 150_000);
     }
 
-    async deposit(secretjs: SecretNetworkClient, amount: string): Promise<Tx> {
+    async deposit(secretjs: SecretNetworkClient, amount: string, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { deposit: { padding: ":::::::::::::::::" } };
-        const tx = await this.exec(secretjs, msg, 40_000, [{amount, denom: "uscrt"}]);
+        const tx = await this.exec(secretjs, msg, gasLimit, [{amount, denom: "uscrt"}]);
         return tx;
     }
 
-    async send(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 100_000): Promise<Tx> {
+    async send(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 150_000): Promise<Tx> {
         const msg = { send: { recipient, amount, padding: ":::::::::::::::::" } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async createViewingKey(secretjs: SecretNetworkClient): Promise<string> {
+    async createViewingKey(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<string> {
         const msg = { create_viewing_key: { entropy: entropy(), padding: ":::::::::::::::::" } };
-        const { data } = await this.exec(secretjs, msg, 30_000);
-        return JSON.parse(fromUtf8(data[0])).create_viewing_key.key;
+        const tx = await this.exec(secretjs, msg, gasLimit);
+        return JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data)).create_viewing_key.key;
     }
 
     private async queryBalanceViewingKey(secretjs: SecretNetworkClient, vk: string): Promise<Snip20BalanceResult> {
