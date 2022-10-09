@@ -18,3 +18,16 @@ export const banner = (str: string) => {
 export const base64 = (str: string): string => {
     return toBase64(toUtf8(str));
 }
+
+// assumes 1 block / 6 sec
+export const minutesInBlocks = (minutes: number): number => {
+    return minutes * 10;
+}
+
+export const hoursInBlocks = (hours: number): number => {
+    return minutesInBlocks(hours * 60);
+}
+
+export const daysInBlocks = (days: number): number => {
+    return hoursInBlocks(days * 24);
+}

@@ -7,8 +7,12 @@ import {
     uploadContract,
     Snip20ContractInstance,
     PlatformContractInstance,
+    ProjectContractInstance,
+    ProjectInitMsg,
 } from "./contracts";
-import { banner, base64, entropy, sleep } from "./utils";
+import { banner, base64, entropy, minutesInBlocks, sleep } from "./utils";
+import { exit } from "process";
+import { GetLatestBlockResponse } from "secretjs/dist/protobuf_stuff/cosmos/base/tendermint/v1beta1/query";
 
 const CHAIN_ID = "secretdev-1";
 
@@ -153,6 +157,90 @@ const setupPlatformContract = async (
     console.log(platform.address);
 }
 
+const testProjectNoSnip24Reward = async (projectCode: ContractInfo) => {
+    const platform = contracts.platform as PlatformContractInstance;
+    contracts.project = new ProjectContractInstance("project", projectCode);
+    const project = contracts.project as ProjectContractInstance; 
+    const sscrt = contracts.sscrt as Snip20ContractInstance;
+    let latestBlockResponse: GetLatestBlockResponse;
+    let block: number;
+
+    banner("Create project no snip24 reward");
+    latestBlockResponse = await a.signer.query.tendermint.getLatestBlock({});
+    block = parseInt(latestBlockResponse.block.header.height);
+
+    let projectInitMsg: ProjectInitMsg = {
+        creator: a.signer.address,
+        title: "Project 1",
+        subtitle: "Subtitle of project 1",
+        description: "Description of project 1",
+        pledged_message: "This is pledged message",
+        funded_message: "This is funded message",
+        reward_messages: [
+            {
+                threshold: "10000000", // 10 sscrt
+                message: "10 sscrt club message",
+            },
+            {
+                threshold: "100000000", // 100 sscrt
+                message: "100 sscrt club message",
+            },
+        ],
+        goal: "1000000000", // 1000 sscrt
+        deadline: block + minutesInBlocks(2),
+        deadman: 100000,
+        categories: [1, 2, 3],
+        source_contract: platform.address,
+        source_hash: platform.contract.codeHash,
+        snip20_contract: sscrt.address,
+        snip20_hash: sscrt.contract.codeHash,
+        entropy: entropy(),
+        minimum_pledge: "1000000",
+        maximum_pledge: "100000000",
+        padding: "============================",
+    };
+    
+    let tx = await project.instantiate(a.signer, projectInitMsg, "project" + entropy());
+    console.log(tx);
+}
+
+const testProjectFromPlatformNoSnip24Reward = async () => {
+    const platform = contracts.platform as PlatformContractInstance; 
+    const sscrt = contracts.sscrt as Snip20ContractInstance;
+    let latestBlockResponse: GetLatestBlockResponse;
+    let block: number;
+
+    banner("Create project no snip24 reward");
+    latestBlockResponse = await a.signer.query.tendermint.getLatestBlock({});
+    block = parseInt(latestBlockResponse.block.header.height);
+    
+    let tx = await platform.create(a.signer, {
+        title: "Project 1",
+        subtitle: "Subtitle of project 1",
+        description: "Description of project 1",
+        pledged_message: "This is pledged message",
+        funded_message: "This is funded message",
+        reward_messages: [
+            {
+                threshold: "10000000", // 10 sscrt
+                message: "10 sscrt club message",
+            },
+            {
+                threshold: "100000000", // 100 sscrt
+                message: "100 sscrt club message",
+            }
+        ],
+        goal: "1000000000", // 1000 sscrt
+        deadline: block + minutesInBlocks(2),
+        categories: [1, 2, 3],
+        snip20_contract: sscrt.address,
+        snip20_hash: sscrt.contract.codeHash,
+        entropy: entropy(),
+        padding: "============================",
+    });
+    console.log(tx);
+}
+
 const main = async () => {
     console.log("Creating signers for a, b, c, d");
     a.signer = await SecretNetworkClient.create({
@@ -196,6 +284,8 @@ const main = async () => {
 
     let projectContractInfo = await setupProjectContract(a.signer);
     await setupPlatformContract(a.signer, projectContractInfo);
+   
+    await testProjectFromPlatformNoSnip24Reward();
 
     console.log("DONE");
 }

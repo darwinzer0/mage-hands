@@ -27,6 +27,8 @@ export type PlatformCreateMsg = {
     goal: string;
     deadline: number;
     categories: number[];
+    snip20_contract: string;
+    snip20_hash: string;
     snip24_reward_init?: Snip24RewardInit;
     entropy: string; // used to set up prng in project contract
     padding?: string;
@@ -60,7 +62,7 @@ export class PlatformContractInstance extends ContractInstance {
         return super.instantiate(secretjs, initMsg, label, gasLimit);
     }
 
-    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 150_000): Promise<Tx> {
+    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 750_000): Promise<Tx> {
         const msg = { create: createMsg };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
