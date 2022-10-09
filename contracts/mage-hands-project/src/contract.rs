@@ -53,7 +53,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let prng_seed = sha_256(base64::encode(msg.entropy).as_bytes()).to_vec();
-    set_prng_seed(deps.storage, &prng_seed)?;
+    set_prng_seed(deps.storage, &prng_seed)?; 
 
     let creator = deps.api.addr_canonicalize(&msg.creator.as_str())?;
     set_creator(deps.storage, &creator)?;
@@ -65,14 +65,14 @@ pub fn instantiate(
     }
     set_deadline(deps.storage, msg.deadline)?;
     set_deadman(deps.storage, msg.deadman)?;
-    set_title(deps.storage, msg.title)?;
+    set_title(deps.storage, msg.title)?; 
     let subtitle = msg.subtitle.unwrap_or_else(|| String::from(""));
     set_subtitle(deps.storage, subtitle)?;
     set_description(deps.storage, msg.description)?;
     let pledged_message = msg.pledged_message.unwrap_or_else(|| String::from(""));
     set_pledged_message(deps.storage, pledged_message)?;
     let funded_message = msg.funded_message.unwrap_or_else(|| String::from(""));
-    set_funded_message(deps.storage, funded_message)?;
+    set_funded_message(deps.storage, funded_message)?; 
     set_reward_messages(deps.storage, msg.reward_messages)?;
     set_pledge_minmax(deps.storage, msg.minimum_pledge.u128(), msg.maximum_pledge.u128())?;
 

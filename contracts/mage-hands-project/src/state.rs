@@ -130,8 +130,7 @@ pub fn get_subtitle(storage: &dyn Storage) -> String {
 }
 
 pub fn set_description(storage: &mut dyn Storage, description: String) -> StdResult<()> {
-    let bytes = base64::decode(&description).map_err(StdError::invalid_base64)?;
-    set_bin_data(storage, DESCRIPTION_KEY, &bytes)
+    set_bin_data(storage, DESCRIPTION_KEY, &description.as_bytes().to_vec())
 }
 
 pub fn get_description(storage: &dyn Storage) -> String {
@@ -139,15 +138,14 @@ pub fn get_description(storage: &dyn Storage) -> String {
         Ok(description) => description,
         Err(_) => vec![],
     };
-    base64::encode(stored_description)
+    String::from_utf8(stored_description).ok().unwrap_or_default()
 }
 
 pub fn set_pledged_message(storage: &mut dyn Storage, pledged_message: String) -> StdResult<()> {
-    let bytes = base64::decode(&pledged_message).map_err(StdError::invalid_base64)?;
     set_bin_data(
         storage,
         PLEDGED_MESSAGE_KEY,
-        &bytes,
+        &pledged_message,
     )
 }
 
@@ -156,15 +154,14 @@ pub fn get_pledged_message(storage: &dyn Storage) -> String {
         Ok(pledged_message) => pledged_message,
         Err(_) => vec![],
     };
-    base64::encode(stored_pledged_message)
+    String::from_utf8(stored_pledged_message).ok().unwrap_or_default()
 }
 
 pub fn set_funded_message(storage: &mut dyn Storage, funded_message: String) -> StdResult<()> {
-    let bytes = base64::decode(&funded_message).map_err(StdError::invalid_base64)?;
     set_bin_data(
         storage,
         FUNDED_MESSAGE_KEY,
-        &bytes,
+        &funded_message,
     )
 }
 
@@ -173,7 +170,7 @@ pub fn get_funded_message(storage: &dyn Storage) -> String {
         Ok(funded_message) => funded_message,
         Err(_) => vec![],
     };
-    base64::encode(stored_funded_message)
+    String::from_utf8(stored_funded_message).ok().unwrap_or_default()
 }
 
 pub fn set_goal(storage: &mut dyn Storage, goal: u128) -> StdResult<()> {
