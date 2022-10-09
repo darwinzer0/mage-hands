@@ -105,7 +105,7 @@ const setupProjectContract = async (secretjs: SecretNetworkClient): Promise<Cont
     console.log("Uploading project contract code");
     const projectCode: ContractInfo = await uploadContract(
         secretjs, 
-        readFileSync(`${__dirname}/../../contracts/project/contract.wasm.gz`) as Uint8Array,
+        readFileSync(`${__dirname}/../../contracts/mage-hands-project/contract.wasm.gz`) as Uint8Array,
         "",
         "", 
         4_000_000
@@ -128,7 +128,7 @@ const setupPlatformContract = async (
     console.log("Uploading platform contract code");
     const platformCode: ContractInfo = await uploadContract(
         secretjs, 
-        readFileSync(`${__dirname}/../../contracts/platform/contract.wasm.gz`) as Uint8Array,
+        readFileSync(`${__dirname}/../../contracts/mage-hands-platform/contract.wasm.gz`) as Uint8Array,
         "",
         "", 
         4_000_000
@@ -137,10 +137,17 @@ const setupPlatformContract = async (
 
     console.log("Instantiating platform contract");
     contracts.platform = new PlatformContractInstance("platform", platformCode);
-    const { platform } = contracts;
+    const { sscrt, platform } = contracts;
     const platformInitMsg = {
         project_contract_code_id: projectContractInfo.codeId,
-        project_contract_code_hash: projectContractInfo.codeHash
+        project_contract_code_hash: projectContractInfo.codeHash,
+        token_min_max_pledges: [
+            {
+                token_addr: sscrt.address,
+                min: "1000000", // 1 sscrt
+                max: "10000000000", // 10000 sscrt
+            },
+        ],
     };
     await platform.instantiate(secretjs, platformInitMsg, `platform-${platformCode.codeId}`);
     console.log(platform.address);
