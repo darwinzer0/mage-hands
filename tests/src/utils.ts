@@ -31,3 +31,7 @@ export const hoursInBlocks = (hours: number): number => {
 export const daysInBlocks = (days: number): number => {
     return hoursInBlocks(days * 24);
 }
+
+export const p = (s: any) => {
+    console.dir(s, {depth: null});
+}

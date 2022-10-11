@@ -53,8 +53,10 @@ export type PlatformContractInfo = {
 }
 
 export type PlatformProjectsResult = {
-    projects: PlatformContractInfo[];
-    count: number;
+    projects: {
+        projects: PlatformContractInfo[];
+        count: number;
+    };
 }
 
 export class PlatformContractInstance extends ContractInstance {
@@ -80,7 +82,7 @@ export class PlatformContractInstance extends ContractInstance {
         return tx;
     }
 
-    async queryProjects(secretjs: SecretNetworkClient, page: number, page_size: number): Promise<PlatformProjectsResult> {
+    async queryProjects(secretjs: SecretNetworkClient, page: number = 0, page_size: number = 10): Promise<PlatformProjectsResult> {
         const query = { projects: { page, page_size } };
         const result = (await this.query(secretjs, query)) as PlatformProjectsResult;
         return result;

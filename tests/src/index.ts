@@ -1,4 +1,6 @@
-import { Wallet, SecretNetworkClient, newPermit, Permit, fromUtf8, toBase64} from "secretjs";
+import { SecretNetworkClient, newPermit, Permit, fromUtf8, toBase64} from "secretjs";
+import { MsgExecuteContractResponse } from "secretjs/dist/protobuf_stuff/secret/compute/v1beta1/msg";
+import { GetLatestBlockResponse } from "secretjs/dist/protobuf_stuff/cosmos/base/tendermint/v1beta1/query";
 import { readFileSync } from "fs";
 import { a, b, c, d } from "./accounts";
 import { 
@@ -10,9 +12,8 @@ import {
     ProjectContractInstance,
     ProjectInitMsg,
 } from "./contracts";
-import { banner, base64, entropy, minutesInBlocks, sleep } from "./utils";
+import { banner, base64, entropy, minutesInBlocks, p, sleep } from "./utils";
 import { exit } from "process";
-import { GetLatestBlockResponse } from "secretjs/dist/protobuf_stuff/cosmos/base/tendermint/v1beta1/query";
 
 const CHAIN_ID = "secretdev-1";
 
@@ -74,11 +75,11 @@ const setupSScrtContract = async (secretjs: SecretNetworkClient) => {
     await sscrt.instantiate(secretjs, sscrtInitMsg, `sSCRT-${sscrtCode.codeId}`);
     console.log(sscrt.address);
 
-    console.log("Seeding a, b, c, d with 1,000,000 sSCRT");
-    await sscrt.deposit(a.signer, "1000000000000");
-    await sscrt.deposit(b.signer, "1000000000000");
-    await sscrt.deposit(c.signer, "1000000000000");
-    await sscrt.deposit(d.signer, "1000000000000");
+    console.log("Seeding a, b, c, d with 100,000,000 sSCRT");
+    await sscrt.deposit(a.signer, "100000000000000");
+    await sscrt.deposit(b.signer, "100000000000000");
+    await sscrt.deposit(c.signer, "100000000000000");
+    await sscrt.deposit(d.signer, "100000000000000");
 
     console.log("Creating sSCRT viewing keys for a, b, c, d")
     a.sScrt.viewingKey = await sscrt.createViewingKey(a.signer);
@@ -155,6 +156,16 @@ const setupPlatformContract = async (
     };
     await platform.instantiate(secretjs, platformInitMsg, `platform-${platformCode.codeId}`);
     console.log(platform.address);
+
+    console.log("Creating platform query permits for a, b, c, d");
+    a.platform.queryPermit = await newPermit(a.wallet, a.wallet.address, CHAIN_ID, "test", [platform.address], ["owner"], false);
+    p(a.platform.queryPermit);
+    b.platform.queryPermit = await newPermit(b.wallet, b.wallet.address, CHAIN_ID, "test", [platform.address], ["owner"], false);
+    p(b.platform.queryPermit);
+    c.platform.queryPermit = await newPermit(c.wallet, c.wallet.address, CHAIN_ID, "test", [platform.address], ["owner"], false);
+    p(c.platform.queryPermit);
+    d.platform.queryPermit = await newPermit(d.wallet, d.wallet.address, CHAIN_ID, "test", [platform.address], ["owner"], false);
+    p(d.platform.queryPermit);
 }
 
 const testProjectNoSnip24Reward = async (projectCode: ContractInfo) => {
@@ -204,7 +215,7 @@ const testProjectNoSnip24Reward = async (projectCode: ContractInfo) => {
     console.log(tx);
 }
 
-const testProjectFromPlatformNoSnip24Reward = async () => {
+const testProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) => {
     const platform = contracts.platform as PlatformContractInstance; 
     const sscrt = contracts.sscrt as Snip20ContractInstance;
     let latestBlockResponse: GetLatestBlockResponse;
@@ -230,7 +241,7 @@ const testProjectFromPlatformNoSnip24Reward = async () => {
                 message: "100 sscrt club message",
             }
         ],
-        goal: "1000000000", // 1000 sscrt
+        goal: "200000000", // 200 sscrt
         deadline: block + minutesInBlocks(2),
         categories: [1, 2, 3],
         snip20_contract: sscrt.address,
@@ -238,7 +249,51 @@ const testProjectFromPlatformNoSnip24Reward = async () => {
         entropy: entropy(),
         padding: "============================",
     });
-    console.log(tx);
+    let data = JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data));
+    console.log(data);
+
+    let projects = (await platform.queryProjects(b.signer)).projects.projects;
+    p(projects);
+
+    let project: ProjectContractInstance = new ProjectContractInstance("first project", projectCode, projects[0].address);
+
+    banner("anon project status query");
+    p(await project.queryStatus(a.signer));
+    // all projects share platform query permit
+    banner("owner project status query");
+    p(await project.queryStatusPermit(a.signer, a.platform.queryPermit));
+    banner("non-contributor project status query");
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("b contributes 0.5 sscrt, not enough!");
+    let send_tx = await sscrt.send(b.signer, project.address, "500000", 300_000);
+    p(send_tx.rawLog);
+    banner("b contributes 1 sscrt");
+    send_tx = await sscrt.send(b.signer, project.address, "1000000", 300_000);
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+    banner("b contributes 10,000,000 sscrt, too much!")
+    send_tx = await sscrt.send(b.signer, project.address, "10000000000000", 300_000);
+    p(send_tx.rawLog);
+    banner("c contributes 50 sscrt");
+    send_tx = await sscrt.send(c.signer, project.address, "50000000", 300_000);
+    p(await project.queryStatusPermit(c.signer, c.platform.queryPermit));
+    banner("d contributes 175 sscrt");
+    send_tx = await sscrt.send(d.signer, project.address, "175000000", 300_000);
+    p(await project.queryStatusPermit(d.signer, d.platform.queryPermit));
+    banner("b contributes 1 sscrt more");
+    send_tx = await sscrt.send(b.signer, project.address, "1000000", 300_000);
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("a wants pay out -- too early");
+    let payout_tx = await project.payOut(a.signer);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(payout_tx.data[0]).data)));
+    
+    sleep(2000);
+
+    banner("a wants pay out -- ok now");
+    payout_tx = await project.payOut(a.signer);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(payout_tx.data[0]).data)));
+
 }
 
 const main = async () => {
@@ -285,7 +340,7 @@ const main = async () => {
     let projectContractInfo = await setupProjectContract(a.signer);
     await setupPlatformContract(a.signer, projectContractInfo);
    
-    await testProjectFromPlatformNoSnip24Reward();
+    await testProjectFromPlatformNoSnip24Reward(projectContractInfo);
 
     console.log("DONE");
 }

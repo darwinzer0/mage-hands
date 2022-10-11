@@ -48,6 +48,12 @@ export class Snip20ContractInstance extends ContractInstance {
         return tx;
     }
 
+    async transfer(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 150_000): Promise<Tx> {
+        const msg = { transfer: { recipient, amount, padding: ":::::::::::::::::"}};
+        const tx = await this.exec(secretjs, msg, gasLimit);
+        return tx;
+    }
+
     async createViewingKey(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<string> {
         const msg = { create_viewing_key: { entropy: entropy(), padding: ":::::::::::::::::" } };
         const tx = await this.exec(secretjs, msg, gasLimit);

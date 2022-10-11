@@ -42,10 +42,10 @@ export class ContractInstance {
     address: string;
     contract: ContractInfo;
 
-    constructor(name: string, contract: ContractInfo) {
+    constructor(name: string, contract: ContractInfo, address: string = null) {
         this.name = name;
         this.contract = contract;
-        this.address = null;
+        this.address = address;
     }
 
     isInstantiated(): boolean {

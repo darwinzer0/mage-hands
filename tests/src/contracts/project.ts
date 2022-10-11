@@ -135,7 +135,7 @@ export class ProjectContractInstance extends ContractInstance {
         return tx;
     }
 
-    async queryStatus(secretjs: SecretNetworkClient, permit: Permit): Promise<ProjectStatusResult> {
+    async queryStatus(secretjs: SecretNetworkClient): Promise<ProjectStatusResult> {
         const query = { status: { } };
         const result = (await this.query(secretjs, query)) as ProjectStatusResult;
         return result;
