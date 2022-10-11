@@ -99,7 +99,7 @@ export class ProjectContractInstance extends ContractInstance {
         return tx;
     }
 
-    async refund(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
+    async refund(secretjs: SecretNetworkClient, gasLimit: number = 300_000): Promise<Tx> {
         const msg = { refund: { padding: "=========" } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
@@ -123,7 +123,7 @@ export class ProjectContractInstance extends ContractInstance {
         return tx;
     }
 
-    async payOut(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
+    async payOut(secretjs: SecretNetworkClient, gasLimit: number = 300_000): Promise<Tx> {
         const msg = { pay_out: { padding: "=========" } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;

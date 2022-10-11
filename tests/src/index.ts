@@ -26,6 +26,13 @@ const printBalance = async (name: string, secretjs: SecretNetworkClient) => {
     console.log(`${name} - ${secretjs.address} has ${Number(amount) / 1e6} SCRT!`);
 }
 
+const printBlock = async () : Promise<number> => {
+    const latestBlockResponse = await a.signer.query.tendermint.getLatestBlock({});
+    const block = parseInt(latestBlockResponse.block.header.height);
+    p(block);
+    return block;
+}
+
 const printAllSnip20Balances = async (snip20: Snip20ContractInstance) => {
     console.log("a sSCRT balance:", await snip20.queryBalance(a.signer, a.sScrt.queryPermit));
     console.log("b sSCRT balance:", await snip20.queryBalance(b.signer, b.sScrt.queryPermit));
@@ -215,15 +222,13 @@ const testProjectNoSnip24Reward = async (projectCode: ContractInfo) => {
     console.log(tx);
 }
 
-const testProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) => {
+const testSuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) => {
     const platform = contracts.platform as PlatformContractInstance; 
     const sscrt = contracts.sscrt as Snip20ContractInstance;
     let latestBlockResponse: GetLatestBlockResponse;
-    let block: number;
 
     banner("Create project no snip24 reward");
-    latestBlockResponse = await a.signer.query.tendermint.getLatestBlock({});
-    block = parseInt(latestBlockResponse.block.header.height);
+    let block = await printBlock();
     
     let tx = await platform.create(a.signer, {
         title: "Project 1",
@@ -249,8 +254,7 @@ const testProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) 
         entropy: entropy(),
         padding: "============================",
     });
-    let data = JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data));
-    console.log(data);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data)));
 
     let projects = (await platform.queryProjects(b.signer)).projects.projects;
     p(projects);
@@ -268,31 +272,64 @@ const testProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) 
     banner("b contributes 0.5 sscrt, not enough!");
     let send_tx = await sscrt.send(b.signer, project.address, "500000", 300_000);
     p(send_tx.rawLog);
+
     banner("b contributes 1 sscrt");
     send_tx = await sscrt.send(b.signer, project.address, "1000000", 300_000);
     p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("b wants refund");
+    p(await sscrt.queryBalance(b.signer, b.sScrt.queryPermit));
+    let refund_tx = await project.refund(b.signer);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(refund_tx.data[0]).data)));
+    p(await sscrt.queryBalance(b.signer, b.sScrt.queryPermit));
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
     banner("b contributes 10,000,000 sscrt, too much!")
     send_tx = await sscrt.send(b.signer, project.address, "10000000000000", 300_000);
     p(send_tx.rawLog);
+
     banner("c contributes 50 sscrt");
     send_tx = await sscrt.send(c.signer, project.address, "50000000", 300_000);
     p(await project.queryStatusPermit(c.signer, c.platform.queryPermit));
+
     banner("d contributes 175 sscrt");
     send_tx = await sscrt.send(d.signer, project.address, "175000000", 300_000);
     p(await project.queryStatusPermit(d.signer, d.platform.queryPermit));
+
     banner("b contributes 1 sscrt more");
     send_tx = await sscrt.send(b.signer, project.address, "1000000", 300_000);
     p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
 
     banner("a wants pay out -- too early");
+    await printBlock();
     let payout_tx = await project.payOut(a.signer);
     p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(payout_tx.data[0]).data)));
     
-    sleep(2000);
+    await sleep(90_000);
+
+    banner("b wants pay out -- invalid user");
+    payout_tx = await project.payOut(b.signer);
+    p(payout_tx.rawLog);
 
     banner("a wants pay out -- ok now");
+    await printBlock();
+    p(await sscrt.queryBalance(a.signer, a.sScrt.queryPermit));
     payout_tx = await project.payOut(a.signer);
     p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(payout_tx.data[0]).data)));
+    p(await sscrt.queryBalance(a.signer, a.sScrt.queryPermit));
+
+    banner("a tries second pay out -- fails");
+    payout_tx = await project.payOut(a.signer);
+    p(payout_tx.rawLog);
+
+    banner("b queries status - sees funded message");
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("c queries status - sees funded message and one reward message");
+    p(await project.queryStatusPermit(c.signer, c.platform.queryPermit));
+
+    banner("d queries status - sees funded message and two reward messages");
+    p(await project.queryStatusPermit(d.signer, d.platform.queryPermit));
 
 }
 
@@ -340,7 +377,7 @@ const main = async () => {
     let projectContractInfo = await setupProjectContract(a.signer);
     await setupPlatformContract(a.signer, projectContractInfo);
    
-    await testProjectFromPlatformNoSnip24Reward(projectContractInfo);
+    await testSuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
 
     console.log("DONE");
 }
