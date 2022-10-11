@@ -222,7 +222,7 @@ pub enum QueryAnswer {
         pledged_message: Option<String>,
         funded_message: Option<String>,
         reward_messages: Vec<RewardMessage>,
-        snip24_rewards: Vec<VestingRewardStatus>,
+        snip24_rewards: Option<Vec<VestingRewardStatus>>,
         contribution: Option<Uint128>,
     },
     Comments {

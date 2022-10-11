@@ -649,7 +649,7 @@ fn calculate_contributor_snip24_rewards(
     storage: &dyn Storage,
     api: &dyn Api,
     address: CanonicalAddr,
-) -> StdResult<Vec<VestingReward>> {
+) -> StdResult<Option<Vec<VestingReward>>> {
     let result: Vec<VestingReward>;
     let snip24_reward_init = get_snip24_reward(storage, api)?;
     match snip24_reward_init {
@@ -699,15 +699,15 @@ fn calculate_contributor_snip24_rewards(
                 }
             }
         },
-        None => { result = vec![]; }
+        None => { return Ok(None); }
     };
-    Ok(result)
+    Ok(Some(result))
 }
 
 fn calculate_creator_snip24_allocation(
     storage: &dyn Storage,
     api: &dyn Api,
-) -> StdResult<Vec<VestingReward>> {
+) -> StdResult<Option<Vec<VestingReward>>> {
     let result: Vec<VestingReward>;
     let snip24_reward_init = get_snip24_reward(storage, api)?;
     match snip24_reward_init {
@@ -738,9 +738,9 @@ fn calculate_creator_snip24_allocation(
                 .collect();
             }
         },
-        None => { result = vec![]; }
+        None => { return Ok(None) }
     };
-    Ok(result)
+    Ok(Some(result))
 }
 
 fn try_claim_reward(
@@ -760,6 +760,10 @@ fn try_claim_reward(
         let is_creator = get_creator(deps.storage)? == sender_address_raw;
         if is_creator {
             let creator_allocation = calculate_creator_snip24_allocation(deps.storage, deps.api)?;
+            if creator_allocation.is_none() {
+                return Err(StdError::generic_err("No snip24 reward for this project"));
+            }
+            let creator_allocation = creator_allocation.unwrap();
             let mut allocation_received = get_creator_snip24_allocation_received(deps.storage)?;
             let snip24_rewards: Vec<VestingRewardStatus> = creator_allocation
                 .into_iter()
@@ -805,6 +809,10 @@ fn try_claim_reward(
         } else { // !is_creator
             let mut funder = get_funder(deps.storage, &sender_address_raw)?;
             let contributor_reward = calculate_contributor_snip24_rewards(deps.storage, deps.api, sender_address_raw.clone())?;
+            if contributor_reward.is_none() {
+                return Err(StdError::generic_err("No snip24 reward for this project"));
+            }
+            let contributor_reward = contributor_reward.unwrap();
             let snip24_rewards: Vec<VestingRewardStatus> = contributor_reward
                 .into_iter()
                 .enumerate()
@@ -1095,7 +1103,7 @@ fn query_status_auth(
     let mut pledged_message: Option<String> = None;
     let mut funded_message: Option<String> = None;
     let mut reward_messages: Vec<RewardMessage> = vec![];
-    let mut snip24_rewards: Vec<VestingRewardStatus> = vec![];
+    let mut snip24_rewards: Option<Vec<VestingRewardStatus>> = None;
     let mut contribution: Option<Uint128> = None;
 
     if is_creator {
@@ -1105,17 +1113,21 @@ fn query_status_auth(
 
         let creator_allocation = calculate_creator_snip24_allocation(deps.storage, deps.api)?;
         let allocation_received = get_creator_snip24_allocation_received(deps.storage)?;
-        snip24_rewards = creator_allocation
-            .into_iter()
-            .enumerate()
-            .map(|(idx, reward)| {
-                VestingRewardStatus { 
-                    amount: Uint128::from(reward.amount), 
-                    block: reward.block, 
-                    received: allocation_received[idx],
-                }
-            })
-            .collect();
+        if creator_allocation.is_some() {
+            snip24_rewards = Some(creator_allocation
+                .unwrap()
+                .into_iter()
+                .enumerate()
+                .map(|(idx, reward)| {
+                    VestingRewardStatus { 
+                        amount: Uint128::from(reward.amount), 
+                        block: reward.block, 
+                        received: allocation_received[idx],
+                    }
+                })
+                .collect()
+            );
+        }
     } else {
         match stored_funder {
             Ok(stored_funder) => {
@@ -1136,17 +1148,21 @@ fn query_status_auth(
                 contribution = Some(Uint128::from(stored_funder.amount));
 
                 let contributor_rewards = calculate_contributor_snip24_rewards(deps.storage, deps.api, sender_address_raw)?;
-                snip24_rewards = contributor_rewards
-                    .into_iter()
-                    .enumerate()
-                    .map(|(idx, reward)| {
-                        VestingRewardStatus { 
-                            amount: Uint128::from(reward.amount), 
-                            block: reward.block, 
-                            received: stored_funder.snip24_rewards_received[idx],
-                        }
-                    })
-                    .collect();
+                if contributor_rewards.is_some() {
+                    snip24_rewards = Some(contributor_rewards
+                        .unwrap()
+                        .into_iter()
+                        .enumerate()
+                        .map(|(idx, reward)| {
+                            VestingRewardStatus { 
+                                amount: Uint128::from(reward.amount), 
+                                block: reward.block, 
+                                received: stored_funder.snip24_rewards_received[idx],
+                            }
+                        })
+                        .collect()
+                    );
+                }
             }
             Err(_) => {}
         };
