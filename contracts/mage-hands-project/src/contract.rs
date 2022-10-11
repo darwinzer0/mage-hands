@@ -25,7 +25,7 @@ use crate::state::{
     push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
     get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, 
     set_creator_snip24_allocation_received, get_creator_snip24_allocation_received, set_funder, 
-    set_pledge_minmax, get_pledge_minmax,
+    set_pledge_minmax, get_pledge_minmax, set_bin_data, SPAM_COUNT_KEY,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -75,6 +75,7 @@ pub fn instantiate(
     set_funded_message(deps.storage, funded_message)?; 
     set_reward_messages(deps.storage, msg.reward_messages)?;
     set_pledge_minmax(deps.storage, msg.minimum_pledge.u128(), msg.maximum_pledge.u128())?;
+    set_bin_data(deps.storage, SPAM_COUNT_KEY, &(0_u32))?;
 
     validate_snip24_reward_init(msg.snip24_reward_init.clone())?;
     set_snip24_reward(deps.storage, deps.api, msg.snip24_reward_init.clone())?;
