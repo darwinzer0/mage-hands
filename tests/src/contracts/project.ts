@@ -74,9 +74,9 @@ export type ProjectStatusResult = {
     description: string;
     categories: number[];
     spam_count: number;
-    snip20_address: string,
-    minimum_pledge: string,
-    maximum_pledge: string,
+    snip20_address: string;
+    minimum_pledge: string;
+    maximum_pledge: string;
     pledged_message?: string;
     funded_message?: string;
     reward_messages?: RewardMessage[];
@@ -86,6 +86,10 @@ export type ProjectStatusResult = {
 export type RewardMessage = {
     threshold: string;
     message: string;
+}
+
+export type ProjectCommentsResult = {
+    comments: string[];
 }
 
 export class ProjectContractInstance extends ContractInstance {
@@ -133,6 +137,12 @@ export class ProjectContractInstance extends ContractInstance {
         const msg = { generate_viewing_key: { entropy: entropy(), padding: "=========" } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
+    }
+
+    async queryComments(secretjs: SecretNetworkClient, page: number = 0, page_size: number = 10): Promise<ProjectCommentsResult> {
+        const query = { comments: { page, page_size } };
+        const result = (await this.query(secretjs, query)) as ProjectCommentsResult;
+        return result;
     }
 
     async queryStatus(secretjs: SecretNetworkClient): Promise<ProjectStatusResult> {

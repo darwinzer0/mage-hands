@@ -225,7 +225,6 @@ const testProjectNoSnip24Reward = async (projectCode: ContractInfo) => {
 const testSuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) => {
     const platform = contracts.platform as PlatformContractInstance; 
     const sscrt = contracts.sscrt as Snip20ContractInstance;
-    let latestBlockResponse: GetLatestBlockResponse;
 
     banner("Create project no snip24 reward");
     let block = await printBlock();
@@ -276,6 +275,11 @@ const testSuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: Cont
     banner("b contributes 1 sscrt");
     send_tx = await sscrt.send(b.signer, project.address, "1000000", 300_000);
     p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("b and c make comments");
+    let comment_tx = await project.comment(b.signer, "Comment 1");
+    comment_tx = await project.comment(c.signer, "Comment 2");
+    p(await project.queryComments(b.signer));
 
     banner("b wants refund");
     p(await sscrt.queryBalance(b.signer, b.sScrt.queryPermit));
@@ -333,6 +337,80 @@ const testSuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: Cont
 
 }
 
+const testUnsuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: ContractInfo) => {
+    const platform = contracts.platform as PlatformContractInstance; 
+    const sscrt = contracts.sscrt as Snip20ContractInstance;
+
+    banner("Create project no snip24 reward -- unsuccessful");
+    let block = await printBlock();
+    
+    let tx = await platform.create(a.signer, {
+        title: "Project 2",
+        subtitle: "Subtitle of project 2",
+        description: "Description of project 2",
+        pledged_message: "This is pledged message",
+        funded_message: "This is funded message",
+        reward_messages: [
+            {
+                threshold: "10000000", // 10 sscrt
+                message: "10 sscrt club message",
+            },
+            {
+                threshold: "100000000", // 100 sscrt
+                message: "100 sscrt club message",
+            }
+        ],
+        goal: "200000000", // 200 sscrt
+        deadline: block + 3,
+        categories: [1, 2, 3],
+        snip20_contract: sscrt.address,
+        snip20_hash: sscrt.contract.codeHash,
+        entropy: entropy(),
+        padding: "============================",
+    });
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data)));
+
+    let projects = (await platform.queryProjects(b.signer)).projects.projects;
+    p(projects);
+
+    let project: ProjectContractInstance = new ProjectContractInstance("first project", projectCode, projects[0].address);
+
+    banner("anon project status query");
+    p(await project.queryStatus(a.signer));
+    // all projects share platform query permit
+    banner("owner project status query");
+    p(await project.queryStatusPermit(a.signer, a.platform.queryPermit));
+    banner("non-contributor project status query");
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("b contributes 1 sscrt");
+    let send_tx = await sscrt.send(b.signer, project.address, "1000000", 400_000);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(send_tx.data[0]).data)));
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    await sleep(20_000);
+
+    banner("b contributes 1 sscrt after expired");
+    send_tx = await sscrt.send(b.signer, project.address, "1000000", 400_000);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(send_tx.data[0]).data)));
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+    banner("a wants pay out -- but not successful");
+    await printBlock();
+    p(await sscrt.queryBalance(a.signer, a.sScrt.queryPermit));
+    let payout_tx = await project.payOut(a.signer);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(payout_tx.data[0]).data)));
+    p(await sscrt.queryBalance(a.signer, a.sScrt.queryPermit));
+
+    banner("b wants refund");
+    p(await sscrt.queryBalance(b.signer, b.sScrt.queryPermit));
+    let refund_tx = await project.refund(b.signer);
+    p(JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(refund_tx.data[0]).data)));
+    p(await sscrt.queryBalance(b.signer, b.sScrt.queryPermit));
+    p(await project.queryStatusPermit(b.signer, b.platform.queryPermit));
+
+}
+
 const main = async () => {
     console.log("Creating signers for a, b, c, d");
     a.signer = await SecretNetworkClient.create({
@@ -378,6 +456,7 @@ const main = async () => {
     await setupPlatformContract(a.signer, projectContractInfo);
    
     await testSuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
+    await testUnsuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
 
     console.log("DONE");
 }
