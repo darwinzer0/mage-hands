@@ -6,9 +6,9 @@
 	import { toast } from '@zerodevx/svelte-toast';
     import { holdForKeplr } from './lib/wallet';
     import type { KeplrStore } from './stores/keplr';
-    import { ContractInfo, PLATFORM_CODE_HASH, PLATFORM_CONTRACT } from './lib/contract';
+    import { ContractInfo, } from './lib/contract';
     import ProjectPreview from './ProjectPreview.svelte';
-    import { PlatformContractInstance, } from './lib/contracts';
+    import { PlatformContractInstance, PLATFORM_CODE_HASH, PLATFORM_CONTRACT} from './lib/contracts';
 
     const platform: PlatformContractInstance = new PlatformContractInstance("platform", PLATFORM_CODE_HASH, PLATFORM_CONTRACT);
 

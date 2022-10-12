@@ -2,7 +2,7 @@ import { writable } from "svelte/store";
 import type { ChainInfo, Window as KeplrWindow } from "@keplr-wallet/types";
 import { SecretNetworkClient, StdSignature } from 'secretjs';
 import { permitName } from "./permits";
-import { PLATFORM_CONTRACT } from "src/lib/contract";
+import { PLATFORM_CONTRACT } from "src/lib/contracts";
 
 // Pulsar
 //export const CHAIN_ID = 'pulsar-2';

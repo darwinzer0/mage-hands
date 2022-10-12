@@ -7,7 +7,8 @@
 	import { fromUtf8 } from "secretjs";
 	import { MsgExecuteContractResponse } from "secretjs/dist/protobuf_stuff/secret/compute/v1beta1/msg";
 
-    import { CreateResponse, PLATFORM_CODE_HASH, SNIP20_CODE_HASH, PLATFORM_CONTRACT, SNIP20_CONTRACT } from './lib/contract';
+	import { CreateResponse } from "./lib/contract";
+    import { PLATFORM_CODE_HASH, SSCRT_CODE_HASH, PLATFORM_CONTRACT, SSCRT_CONTRACT } from './lib/contracts';
     import { allCategories } from './lib/categories';
 
     import Paper from '@smui/paper';
@@ -39,7 +40,6 @@
 	$: categoryIndexes = categories.map( (category) => {
 		return allCategories.indexOf(category);
 	});
-	$: deadlineSec = Math.floor(deadline / 1000);
 	import pako from "pako";
     import { PlatformContractInstance, PlatformCreateMsg } from './lib/contracts';
     import { daysInBlocks, entropy, getBlock } from "./lib/utils";
@@ -79,13 +79,13 @@
 				goal: goalUScrt,
 				deadline: deadlineBlock,
 				categories: categoryIndexes,
-				snip20_contract: SNIP20_CONTRACT,
-				snip20_hash: SNIP20_CODE_HASH,
+				snip20_contract: SSCRT_CONTRACT,
+				snip20_hash: SSCRT_CODE_HASH,
 				entropy: entropy(),
 			};
 			try {
 				const tx = await platform.create(scrtClient, platformCreateMsg, 500_000);
-				const result = JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data));
+				result = JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data));
 				if (result.create && result.create.status === "success") {
 					clearFields();
 					push('/projects/0');

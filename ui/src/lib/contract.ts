@@ -1,15 +1,6 @@
 import { keplrStore } from "../stores/keplr";
 import { get } from 'svelte/store';
 
-// Pulsar-2
-//export const CONTRACT = 'secret1jz687dpv3lwe7pxw8vljhtkc9ysx4a6exrakfx';
-
-// Local testnet
-export const PLATFORM_CONTRACT = 'secret1qxxlalvsdjd07p07y3rc5fu6ll8k4tme6e2scc';
-export const PLATFORM_CODE_HASH = 'TODO';
-export const SNIP20_CONTRACT = 'secretxxx';
-export const SNIP20_CODE_HASH = 'TODO';
-
 const utf8decoder = new TextDecoder();
 
 interface Response {
@@ -74,17 +65,6 @@ export interface ProjectStatusResponse {
     projectStatus?: ProjectStatus;
     error?: string;
 };
-
-const entropyGenerator = (length): string => {
-	var base = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
-	var array = new Uint8Array(length);
-	window.crypto.getRandomValues(array);
-	var str = '';
-	for (var i = 0; i < array.length; i++) {
-		str += base[array[i]%base.length];
-	};
-	return str;
-}
 
 ///
 /// Execute

@@ -3,14 +3,14 @@
 	import { CHAIN_ID, getSignature, KeplrStore } from './stores/keplr';
 	import { permitName } from './stores/permits';
 	import { holdForKeplr } from './lib/wallet';
-    import { PLATFORM_CONTRACT, ContractInfo, } from './lib/contract';
+    import { ContractInfo, } from './lib/contract';
     import { allCategories } from './lib/categories';
 
     import Chip, { Set, Text } from '@smui/chips';
 	import Button, { Label } from '@smui/button';
 
 	import { permitsStore, } from './stores/permits';
-    import { ProjectStatusResult, ProjectContractInstance } from './lib/contracts';
+    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, } from './lib/contracts';
     import { SecretNetworkClient, Permit } from 'secretjs';
 	import { getBlock } from './lib/utils';
 

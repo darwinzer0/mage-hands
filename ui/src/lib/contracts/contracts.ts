@@ -6,6 +6,14 @@ import { SimulateResponse } from "secretjs/dist/protobuf_stuff/cosmos/tx/v1beta1
 import { PlatformContractInstance } from "./platform";
 import { ProjectContractInstance } from "./project";
 
+// Pulsar-2
+
+// Local testnet
+export const PLATFORM_CONTRACT = 'secret174kgn5rtw4kf6f938wm7kwh70h2v4vcfft5mqy';
+export const PLATFORM_CODE_HASH = '595712465c4297ef17e2a77ac0503f9425f403cc54879fab4db76cc9d8594faa';
+export const SSCRT_CONTRACT = 'secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg';
+export const SSCRT_CODE_HASH = '1c7ab6110892920d69e590d9cf229138115622e1faa3bc5fecb05929aa0eeca3';
+
 export type ContractInfo = {
     codeHash: string;
     codeId: number;
