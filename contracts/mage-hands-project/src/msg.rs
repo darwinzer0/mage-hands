@@ -1,4 +1,5 @@
 use crate::reward::{Snip24RewardInit, RewardMessage, VestingRewardStatus};
+use crate::state::StoredComment;
 use crate::viewing_key::ViewingKey;
 use cosmwasm_std::{Addr, Uint128, Binary, };
 use secret_toolkit::permit::Permit;
@@ -226,7 +227,7 @@ pub enum QueryAnswer {
         contribution: Option<Uint128>,
     },
     Comments {
-        comments: Vec<String>,
+        comments: Vec<StoredComment>,
     },
 }
 

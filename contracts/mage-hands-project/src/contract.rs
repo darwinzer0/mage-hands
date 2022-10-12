@@ -877,7 +877,7 @@ fn try_claim_reward(
 pub fn try_comment(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     comment: String,
 ) -> StdResult<Response> {
     let mut response_status = Failure;
@@ -890,7 +890,14 @@ pub fn try_comment(
     } else if status == SUCCESSFUL || is_paid_out(deps.storage) {
         msg = String::from("Cannot comment on a funded project");
     } else {
-        push_comment(deps.storage, comment)?;
+        let creator = get_creator(deps.storage)?;
+        let from_creator: bool;
+        if deps.api.addr_canonicalize(info.sender.as_str())? == creator {
+            from_creator = true;
+        } else {
+            from_creator = false;
+        }
+        push_comment(deps.storage, comment, from_creator)?;
         msg = String::from("Comment added");
         response_status = Success;
     }

@@ -34,7 +34,7 @@ pub static TOTAL_KEY: &[u8] = b"totl";
 pub static SPAM_COUNT_KEY: &[u8] = b"spac";
 
 pub static FUNDER_STORE: AppendStore<CanonicalAddr> = AppendStore::new(b"fund");
-pub static COMMENT_STORE: AppendStore<String> = AppendStore::new(b"comm");
+pub static COMMENT_STORE: AppendStore<StoredComment> = AppendStore::new(b"comm");
 
 pub static PREFIX_VIEWING_KEY: &[u8] = b"vkey";
 pub static PREFIX_SPAM_KEY: &[u8] = b"spam";
@@ -345,8 +345,18 @@ pub fn get_total(storage: &dyn Storage) -> StdResult<u128> {
     get_bin_data(storage, TOTAL_KEY)
 }
 
-pub fn push_comment(storage: &mut dyn Storage, comment: String) -> StdResult<u32> {
-    COMMENT_STORE.push(storage, &comment)?;
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StoredComment {
+    pub comment: String,
+    pub from_creator: bool,
+}
+
+pub fn push_comment(storage: &mut dyn Storage, comment: String, from_creator: bool) -> StdResult<u32> {
+    let stored_comment = StoredComment {
+        comment,
+        from_creator,
+    };
+    COMMENT_STORE.push(storage, &stored_comment)?;
     Ok(COMMENT_STORE.get_len(storage)? - 1)
 }
 
@@ -354,8 +364,8 @@ pub fn get_comments(
     storage: &dyn Storage,
     page: u32,
     page_size: u32,
-) -> StdResult<Vec<String>> {
-    let comments: StdResult<Vec<String>> = COMMENT_STORE
+) -> StdResult<Vec<StoredComment>> {
+    let comments: StdResult<Vec<StoredComment>> = COMMENT_STORE
         .iter(storage)?
         .skip((page * page_size) as _)
         .take(page_size as _)
@@ -366,7 +376,7 @@ pub fn get_comments(
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StoredFunder {
     pub idx: u32,
-    // stay anonymous to project owner
+    // stay anonymous to project creator
     pub anonymous: bool,
     pub amount: u128,
     pub snip24_rewards_received: Vec<bool>,
