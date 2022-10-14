@@ -1,4 +1,5 @@
-<div class="paper ce-example__content _ce-example__content--small">
+<!-- <div class="paper ce-example__content _ce-example__content--small"> -->
+<div class="paper"> 
     <div id={editorId}></div>
 </div>
 
@@ -33,6 +34,7 @@
         color: black;
     }
 
+    /*
     .ce-example__content {
         max-width: 1100px;
         margin: 0 auto;
@@ -47,6 +49,9 @@
         padding: 0 15px;
         background-color: white;
     }
+    */
+
+    .ce-block__content, .ce-toolbar__content { max-width:calc(100% - 80px) !important; } .cdx-block { max-width: 100% !important; }
 </style>
 
 <script>
@@ -64,13 +69,14 @@
     import CodeTool from '@editorjs/code';
     import Delimiter from '@editorjs/delimiter';
     import InlineCode from '@editorjs/inline-code';
-    import LinkTool from '@editorjs/link';
+    //import LinkTool from '@editorjs/link';
     import Embed from '@editorjs/embed';
     import Table from '@editorjs/table';
 
     export let editorId = "editorjs";
     export let data = "";
     export let readOnly = false;
+    export let minHeight = 0;
 
     let editor = new EditorJS({
         /**
@@ -78,7 +84,7 @@
          */
         readOnly,
 
-        minHeight: 0,
+        minHeight,
 
         /**
          * Wrapper of Editor
@@ -152,7 +158,7 @@
                 shortcut: 'CMD+SHIFT+C'
             },
 
-            linkTool: LinkTool,
+            //linkTool: LinkTool,
 
             embed: Embed,
 
@@ -175,3 +181,4 @@
         }
     });
 </script>
+

@@ -4,7 +4,7 @@
 
 	let signature;
 	
-	function handleClick() {
+	function handleGetSignature() {
 		getSignature(CHAIN_ID).then( sig => { 
 			console.log(sig);
 			signature = sig;
@@ -18,13 +18,15 @@
 </svelte:head>
 
 <section in:fade="{{duration: 500}}">
+
     <div class="welcome">
         <picture>
-            <source srcset="magehands.webp" type="image/webp" />
-            <img src="magehands.png" alt="Mage Hands" />
+            <!-- <source srcset="magehands.webp" type="image/webp" /> -->
+            <img src="dendrites.png" alt="Mage Hands" />
         </picture>
     </div>
-    <h1>
+
+	<h1>
         Mage Hands
     </h1>
 
@@ -32,7 +34,7 @@
         Crowdfunding on Secret Network
     </h2>
 
-	<button on:click={handleClick}>
+	<button on:click={handleGetSignature}>
 		Get Signature
 	</button>
 	{#if signature}
@@ -53,7 +55,7 @@
 		width: 100%;
 		color: var(--heading-secondary-color);
 		font-family: var(--font-wizzta);
-		font-size: 60px;
+		font-size: 72px;
 	}
 
 	h2 {
@@ -65,8 +67,9 @@
 		position: relative;
 		width: 100%;
 		height: 0;
-		padding: 0 0 calc(100% * 517 / 2048) 0;
-        margin-top: 1rem;
+		/* padding: 0 0 calc(100% * 517 / 2048) 0; */
+		padding: 0 0 calc(100% * 932 / 2048) 0;
+        margin-bottom: 1rem;
 	}
 
 	.welcome img {

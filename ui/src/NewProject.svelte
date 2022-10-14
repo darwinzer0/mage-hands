@@ -15,6 +15,7 @@
     import { Input } from '@smui/textfield';
 	import Textfield from '@smui/textfield';
   	import CharacterCounter from '@smui/textfield/character-counter/index';
+	import LayoutGrid from '@smui/layout-grid';
 	import { Label } from '@smui/button';
 
     import MultiSelect from 'svelte-multiselect';
@@ -25,16 +26,26 @@
 		{ id: 0, text: "sSCRT", img: "sscrt.svg", alt: "sscrt"}
 	];
 
+	type RewardMessage = {
+		message: string,
+		threshold: number,
+	};
+
 	let title: string = '';
 	let subtitle: string = '';
 	let categories: string[] = [];
 	let description: string = '';
 	let pledged_message: string = '';
 	let funded_message: string = '';
+	let reward_messages: RewardMessage[] = [];
     let deadline: number = 14;
 	let goal: string = '';
 	let denom = 0;
 	let result: CreateResponse;
+
+	const subscreens = ["Basics", "About", "Rewards", "Begin"];
+	let subscreen: string = subscreens[0];
+	const deadlineOptions = [14, 30, 60];
 
     $: invalidProject = title === '' || description === '' || goal === '' || parseFloat(goal) <= 0 || !deadline;
 	$: categoryIndexes = categories.map( (category) => {
@@ -43,6 +54,7 @@
 	import pako from "pako";
     import { PlatformContractInstance, PlatformCreateMsg } from './lib/contracts';
     import { daysInBlocks, entropy, getBlock } from "./lib/utils";
+    import Cell from "@smui/layout-grid/Cell.svelte";
 	$: pakoDescription = btoa(pako.gzip(description, {to: 'string'}));
 	$: pakoPledgedMessage = btoa(pako.gzip(pledged_message, {to: 'string'}));
 	$: pakoFundedMessage = btoa(pako.gzip(funded_message, {to: 'string'}));
@@ -58,6 +70,11 @@
 		deadline = null;
 		denom = 0;
 		result = null;
+	}
+
+	async function handleSubScreenButton(sub: string) {
+		subscreen = sub;
+		//toast.push(sub);
 	}
 
     async function handleStartFundraising() {
@@ -99,10 +116,15 @@
 		}
 	}
 
-	function handleGoalInput(event) {
+	function handleNonNegativeInput(event) {
 		if (event.target.valueAsNumber < 0) {
 			goal = event.target.value.substring(1);
 		}
+	}
+
+	function handleAddRewardMessage() {
+		reward_messages.push({ message: "", threshold: 0 });
+		reward_messages = reward_messages;
 	}
 </script>
 
@@ -111,136 +133,246 @@
 </svelte:head>
 
 <section in:fade="{{duration: 500}}" class="newproj">
-	<div class="lgmargin">
+	<div class="margins">
     	<h1>Create a New Fundraising Project</h1>
 	</div>
 
 	<div class="margins">
         <div class="solo-demo-container solo-container">
-			<button on:click={() => handleStartFundraising()} >
-				<Label>BASICS</Label>
-			</button>
-			<button on:click={() => handleStartFundraising()} >
-				<Label>REWARDS</Label>
-			</button>
-			<button on:click={() => handleStartFundraising()} >
-				<Label>STORY</Label>
-			</button>
-			<button on:click={() => handleStartFundraising()} >
-				<Label>PEOPLE</Label>
-			</button>
+			{#each subscreens as sub}
+				<button class={subscreen === sub ? "button-beach-sm-selected" : "button-beach-sm"} on:click={() => handleSubScreenButton(sub)} >
+					<Label>{sub}</Label>
+				</button>
+			{/each}
           </div>
     </div>
 
-	<div class="margins">
-		<Textfield
-			style="width: 100%;"
-			helperLine$style="width: 100%;"
-			variant="outlined"
-			bind:value={title}
-			label="Title"
-			input$maxlength={100}
-            input$style="font-size:28px;"
-		>
-			<CharacterCounter slot="helper">0 / 100</CharacterCounter>
-		</Textfield>
-	</div>
+	{#if subscreen === subscreens[0]}
+		<LayoutGrid>
+			<Cell span={3}>
+				<p>
+					The basic information about your project that will show up on the project list page.
+				</p>
+			</Cell>
+			<Cell span={9}>
+				<div class="margins">
+					<Textfield
+						style="width: 100%;"
+						helperLine$style="width: 100%;"
+						variant="outlined"
+						bind:value={title}
+						label="Title"
+						input$maxlength={100}
+						input$style="font-size:28px;"
+					>
+						<CharacterCounter slot="helper">0 / 100</CharacterCounter>
+					</Textfield>
+				</div>
+				<div>
+					<Textfield
+						style="width: 100%;"
+						helperLine$style="width: 100%;"
+						variant="outlined"
+						bind:value={subtitle}
+						label="Subtitle"
+						input$maxlength={100}
+						input$style="font-size:24px;"
+					>
+						<CharacterCounter slot="helper">0 / 100</CharacterCounter>
+					</Textfield>
+				</div>
+				<div class="solo-demo-container-no-border solo-container">
+					<MultiSelect
+						bind:selected={categories} 
+						options={allCategories} 
+						maxSelect={3}
+						placeholder="Categories..."
+						--sms-options-bg="var(--pure-white, white)"
+						--sms-token-bg="var(--pure-white)"
+						--sms-text-color="var(--secondary-color)"
+						--sms-li-selected-color="var(--secondary-color)"
+						--sms-li-selected-bg="var(--pure-white, white)"
+						--sms-token-padding="0.5ex 0 0.5ex 1ex"
+						--sms-font-size="24px"
+						--sms-bg="var(--pure-white, white)"
+					/>
+				</div>
+				<div class="margins">
+					<div class="solo-demo-container solo-container">
+						<Paper class="solo-paper" elevation={6}>
+							<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
+							<Input
+								bind:value={goal}
+								placeholder="Amount you want to raise"
+								class="solo-input"
+								type="number"
+								style="font-size:20px;"
+								on:input={handleNonNegativeInput}
+							/>
+						</Paper>
+					  </div>
+				</div>
+			</Cell>
+		</LayoutGrid>
+	{:else if subscreen === subscreens[1]}
+		<LayoutGrid>
+			<Cell span={3}>
+				<p>
+					Describe your project here. You can embed images or videos on the web by copying the URL into the edit box.
+				</p>
+				<p>
+					The more specific information you can add here about your goals for project and vision, 
+					the more likely you are to be successful in your fundraising goal. 
+				</p>
+				<p>
+					Including visuals or links to external sites with information about your project 
+					is a great way for people to learn more about your project. 
+					Also, add as much information as you can about your team and background, and use social media platforms 
+					to build interest in advance of launching your campaign.
+				</p>
+			</Cell>
+			<Cell span={9}>
+				<div class="edmargin">
+					<Editor bind:data={description} editorId="descriptionEditor"/>
+				</div>
+			</Cell>
+		</LayoutGrid>
+	{:else if subscreen === subscreens[2]}
+		<LayoutGrid>
+			<Cell span={3}>
+				<p>
+					Add an optional message for all contributors when they pledge a contribution. This is a good place to add a simple thank you message.
+				</p>
+			</Cell>
+			<Cell span={9}>
+				<div class="edmargin">
+					<Editor bind:data={pledged_message} editorId="pledgedMessageEditor"/>
+				</div>
+			</Cell>
+			<Cell span={3}>
+				<p>
+					Add an optional message for all contributors that is only visible after successful fundraising. Some things you could put here include whitelist codes, or a link to an encrypted file and the decryption key.
+				</p>
+			</Cell>
+			<Cell span={9}>
+				<div class="edmargin">
+					<Editor bind:data={funded_message} editorId="fundedMessageEditor"/>
+				</div>
+			</Cell>
+			<Cell span={3}>
+				<p>
+					Add special messages that are only visible to contributors who give above a threshold. You can reward big backers with whitelist codes to exclusive NFT drops or encrypted files.
+				</p>
+			</Cell>
+			<Cell span={9}>
+				<div class="edmargin">
+					{#each reward_messages as reward_message, i}
+						<Editor bind:data={reward_messages[i].message} editorId={"rewardMessageId"+i} />
+						<div class="solo-demo-container solo-container">
+							Threshold:
+							<Paper class="solo-paper" elevation={6}>
+								<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
+								<Input
+									bind:value={reward_messages[i].threshold}
+									placeholder="Reward threshold"
+									class="solo-input"
+									type="number"
+									style="font-size:16px;"
+									on:input={handleNonNegativeInput}
+								/>
+							</Paper>
+						</div>
+					{/each}
+					<button class="button-beach-sm" on:click={() => handleAddRewardMessage()} >
+						<Label>Message+</Label>
+					</button>
+				</div>
+			</Cell>
+		</LayoutGrid>
+	{:else if subscreen === subscreens[3]}
+    	<div class="lgmargin">
+        	<div class="solo-demo-container-no-border solo-container">
+				{#each deadlineOptions as deadlineOption}
+					<div class="radio-days">
+						<label><input type=radio bind:group={deadline} name="deadline" value={deadlineOption} /> {deadlineOption} days</label>
+					</div>
+				{/each}
+        	</div>
+    	</div>
 
-	<div>
-		<Textfield
-			style="width: 100%;"
-			helperLine$style="width: 100%;"
-			variant="outlined"
-			bind:value={subtitle}
-			label="Subtitle"
-			input$maxlength={100}
-            input$style="font-size:24px;"
-		>
-			<CharacterCounter slot="helper">0 / 100</CharacterCounter>
-		</Textfield>
-	</div>
-
-     <div class="solo-demo-container-no-border solo-container">
-        <MultiSelect
-            bind:selected={categories} 
-            options={allCategories} 
-            maxSelect={3}
-            placeholder="Select categories..."
-            --sms-options-bg="var(--pure-white, white)"
-            --sms-token-bg="var(--pure-white)"
-            --sms-text-color="var(--secondary-color)"
-            --sms-li-selected-color="var(--secondary-color)"
-            --sms-token-padding="0.5ex 0 0.5ex 1ex"
-        />
-    </div>
-
-	<div class="lgmargin">
-		<div class="solo-demo-container-no-border solo-container">
-			Describe your project. Paste image or video urls to embed.
-		</div>
-		<Editor bind:data={description} editorId="descriptionEditor"/>
-	</div>
-
-	<div class="lgmargin">
-		<div class="solo-demo-container-no-border solo-container">
-			Add an optional message for contributors when they pledge a contribution.
-		</div>
-		<Editor bind:data={pledged_message} editorId="pledgedMessageEditor"/>
-	</div>
-
-	<div class="lgmargin">
-		<div class="solo-demo-container-no-border solo-container">
-			Add an optional message for contributors only visible after successful fundraising and payout.
-		</div>
-		<Editor bind:data={funded_message} editorId="fundedMessageEditor"/>
-	</div>
-	
-    <div class="margins">
-        <div class="solo-demo-container solo-container">
-            <Paper class="solo-paper" elevation={6}>
-                <img src="sscrt.svg" alt="sscrt" style="color:white;"/>
-                <Input
-                    bind:value={goal}
-                    placeholder="Minimum amount you want to raise"
-                    class="solo-input"
-                    type="number"
-                    style="font-size:20px;"
-					on:input={handleGoalInput}
-                />
-            </Paper>
-          </div>
-    </div>
-
-    <div class="lgmargin">
-        <div class="solo-demo-container-no-border solo-container">
-            <label>
-	        <input type=radio bind:group={deadline} name="deadline" value={14} />
-	            14 days
-            </label>
-
-            <label>
-	        <input type=radio bind:group={deadline} name="deadline" value={30}>
-	            30 days
-            </label>
-
-            <label>
-	        <input type=radio bind:group={deadline} name="deadline" value={60}>
-	            60 days
-            </label>
-        </div>
-    </div>
-
-    <div class="margins">
-        <div class="solo-demo-container-no-border solo-container">
-		    <button on:click={() => handleStartFundraising()} disabled={invalidProject} class="button-beach">
-			    <Label>Start Fundraising</Label>
-		    </button>
-        </div>
-    </div>
+    	<div class="margins">
+        	<div class="solo-demo-container-no-border solo-container">
+		    	<button on:click={() => handleStartFundraising()} disabled={invalidProject} class="button-beach">
+			    	<Label>Start Fundraising</Label>
+		    	</button>
+        	</div>
+    	</div>
+	{/if}
 </section>
 
 <style lang="scss">
     @import url("https://fonts.googleapis.com/css?family=Raleway:500");
+
+	.button-beach-sm-selected {
+		-webkit-appearance: none;
+        background: -webkit-gradient(to left, #064a45 0%, #fceeb5 50%, #ee786e 100%);
+        background: linear-gradient(to left, #064a45 0%, #fceeb5 50%, #ee786e 100%);
+        background-size: 500%;
+        border: none;
+        border-radius: 5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        color: #fff;
+        cursor: pointer;
+        font: 1em Raleway, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        height: 3.5rem;
+        letter-spacing: 0.05em;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        width: 10rem;
+		margin: 1rem 1rem 1rem 1rem;
+	}
+
+	.button-beach-sm {
+        -webkit-appearance: none;
+        background: -webkit-gradient(to right, #064a45 0%, #fceeb5 50%, #ee786e 100%);
+        background: linear-gradient(to right, #064a45 0%, #fceeb5 50%, #ee786e 100%);
+        background-size: 500%;
+        border: none;
+        border-radius: 5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        color: #fff;
+        cursor: pointer;
+        font: 1em Raleway, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        height: 3.5rem;
+        letter-spacing: 0.05em;
+        outline: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        width: 10rem;
+		margin: 1rem 1rem 1rem 1rem;
+    }
+
+	.button-beach-sm:hover {
+        animation-name: gradient;
+        -webkit-animation-name: gradient;
+        animation-duration: 2s;
+        -webkit-animation-duration: s;
+        animation-iteration-count: 1;
+        -webkit-animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+        -webkit-animation-fill-mode: forwards;
+    }
 
     .button-beach {
         -webkit-appearance: none;
@@ -299,7 +431,7 @@
 	.newproj {
 		width: 100%;
 		max-width: var(--column-width);
-		margin: var(--column-margin-top) auto 0 auto;
+		margin: 0 auto 0 auto;
 		line-height: 1;
 	}
 
@@ -307,26 +439,12 @@
 		margin: 0 0 1rem 0;
 	}
 
-	.smmargin {
-		margin: 0 0 0.5rem 0;
+	.edmargin {
+		margin: 1rem 0 0 0;
 	}
 
 	.lgmargin {
 		margin: 0 0 2.5rem 0;
-	}
-
-	.submit {
-		margin: auto;
-	}
-
-	* :global(.multiselect ul.tokens > li) {
-  		/* the blue tags representing selected options with remove buttons inside the input */
-		color: var(--secondary-color);
-	}
-
-	* :global(.multiselect ul.options li) {
-  		/* dropdown options */
-		color: var(--secondary-color);
 	}
 
 	* :global(.shaped-outlined),
@@ -395,4 +513,9 @@
         color: white;
         opacity: 0.7;
     }
+
+	.radio-days {
+    	margin: 0 2em;
+		font-size: 24px;
+  	}
 </style>

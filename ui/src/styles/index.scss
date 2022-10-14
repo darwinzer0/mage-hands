@@ -12,18 +12,21 @@
 		Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 	--font-wizzta: 'wizztaregular';
 	--pure-white: #ffffff;
-	--primary-color: #5f13b8;
-	--secondary-color: #0b2e4e;
-	--tertiary-color: #064a45;
+	--primary-color: #340c62;
+	--secondary-color: #09233c;
+	--tertiary-color: #021d1b;
 	--accent-color: #00ffdd;
 	--accent-color-dark: #0d9188;
 	--heading-color: rgba(0, 0, 0, 0.7);
 	--heading-secondary-color: rgba(255, 255, 255, 0.9);
 	--text-color: #444444;
 	--background-without-opacity: rgba(255, 255, 255, 0.7);
-	--column-width: 52rem;
+	/* --column-width: 52rem; */
+	--column-width: 80rem;
 	--column-margin-top: 4rem;
 }
+
+.ce-block__content, .ce-toolbar__content { max-width:calc(100% - 105px) !important; } .cdx-block { max-width: 100% !important; }
 
 body {
 	min-height: 100vh;
@@ -32,7 +35,8 @@ body {
 	background: linear-gradient(
 		180deg,
 		var(--primary-color) 0%,
-		var(--secondary-color) 10.45%,
+		/* var(--secondary-color) 10.45%, */
+		var(--secondary-color) 5em,
 		var(--tertiary-color) 41.35%
 	);
 }

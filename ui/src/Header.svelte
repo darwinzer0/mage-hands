@@ -16,7 +16,7 @@
 
 <header>
 	<div class="corner">
-		<img src="/mage-hands-logo.svg" alt="Mage Hands" />
+		<img src="/dendrites-logo.png" alt="Mage Hands" />
 	</div>
 
 	<nav>

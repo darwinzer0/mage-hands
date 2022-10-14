@@ -43,6 +43,7 @@
 		keplr = await holdForKeplr(keplr);
         const { scrtClient } = keplr;
         const result = await platform.queryProjects(scrtClient, pageValue, pageSize);
+        console.log(result);
 		if (result.projects) {
             projectCount = result.projects.count;
             projects = result.projects.projects;
