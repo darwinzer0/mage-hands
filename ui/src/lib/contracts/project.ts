@@ -9,7 +9,7 @@ export type ProjectInitMsg = {
     description: string;
     pledged_message?: string;
     funded_message?: string;
-    reward_messages: RewardMessage[];
+    reward_messages: ProjectRewardMessage[];
     goal: string;
     deadline: number;
     deadman: number;
@@ -79,11 +79,19 @@ export type ProjectStatusResult = {
     maximum_pledge: string;
     pledged_message?: string;
     funded_message?: string;
-    reward_messages?: RewardMessage[];
+    reward_messages?: ProjectRewardMessage[];
     contribution?: string;
 }
 
-export type RewardMessage = {
+export type ProjectStatusNoAuthResult = {
+    status: ProjectStatusResult;
+}
+
+export type ProjectStatusAuthResult = {
+    status_auth: ProjectStatusResult;
+}
+
+export type ProjectRewardMessage = {
     threshold: string;
     message: string;
 }
@@ -144,14 +152,14 @@ export class ProjectContractInstance extends ContractInstance {
 
     async queryStatus(secretjs: SecretNetworkClient): Promise<ProjectStatusResult> {
         const query = { status: { } };
-        const result = (await this.query(secretjs, query)) as ProjectStatusResult;
-        return result;
+        const result = (await this.query(secretjs, query)) as ProjectStatusNoAuthResult;
+        return result.status;
     }
 
     async queryStatusPermit(secretjs: SecretNetworkClient, permit: Permit): Promise<ProjectStatusResult> {
         const query = { status_with_permit: { permit } };
-        const result = (await this.query(secretjs, query)) as ProjectStatusResult;
-        return result;
+        const result = (await this.query(secretjs, query)) as ProjectStatusAuthResult;
+        return result.status_auth;
     }
 
 }

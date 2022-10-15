@@ -1,6 +1,6 @@
 import { SecretNetworkClient, fromUtf8, Permit, Tx} from "secretjs";
 import { ContractInstance } from "./contracts";
-import { RewardMessage, Snip24RewardInit } from "./project";
+import { ProjectRewardMessage, Snip24RewardInit } from "./project";
 
 export type PlatformInitMsg = {
     owner?: string;
@@ -22,7 +22,7 @@ export type PlatformCreateMsg = {
     description: string;
     pledged_message?: string;
     funded_message?: string;
-    reward_messages: RewardMessage[];
+    reward_messages: ProjectRewardMessage[];
     goal: string;
     deadline: number;
     categories: number[];

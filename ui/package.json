@@ -81,7 +81,7 @@
 		"webpack-dev-server": "^4.10.0"
 	},
 	"dependencies": {
-		"serve": "^11.3.2",
+		"serve": "^14.0.1",
 		"webpack": "^5.74.0"
 	},
 	"browserslist": [

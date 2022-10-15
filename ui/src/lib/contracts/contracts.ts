@@ -12,7 +12,7 @@ import { ProjectContractInstance } from "./project";
 export const PLATFORM_CONTRACT = 'secret174kgn5rtw4kf6f938wm7kwh70h2v4vcfft5mqy';
 export const PLATFORM_CODE_HASH = '595712465c4297ef17e2a77ac0503f9425f403cc54879fab4db76cc9d8594faa';
 export const SSCRT_CONTRACT = 'secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg';
-export const SSCRT_CODE_HASH = '1c7ab6110892920d69e590d9cf229138115622e1faa3bc5fecb05929aa0eeca3';
+export const SSCRT_CODE_HASH = '23be3ac5b8142da60b78653b106067213f04933d16d419d8cf8f51c9381f20de';
 
 export type ContractInfo = {
     codeHash: string;

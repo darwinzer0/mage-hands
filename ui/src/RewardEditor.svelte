@@ -54,7 +54,8 @@
     import Table from '@editorjs/table';
 
     export let editorId = "editorjs";
-    export let data = "";
+    export let data = [];
+    export let messageIdx = null;
     export let readOnly = false;
     export let minHeight = 0;
 
@@ -154,8 +155,10 @@
         // defaultBlock: 'paragraph',
         onChange: function(api, event) {
             editor.save().then((savedData) => {
-                data = JSON.stringify(savedData);
-                data = data;
+                if (messageIdx !== null) {
+                    data[messageIdx].message = JSON.stringify(savedData);
+                    data = data;
+                }
             });
         }
     });

@@ -82,7 +82,7 @@
             />
   	    {/if}
     </div>
-    <p>Projects {params.page}</p>
+    <p>Projects page {params.page + 1}</p>
 </section>
 
 
