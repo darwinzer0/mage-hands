@@ -9,10 +9,12 @@
 	import Header from "./Header.svelte";
 
 	import { SvelteToast } from '@zerodevx/svelte-toast';
+    import ProjectDetail from './ProjectDetail.svelte';
 
 	const routes = {
     	'/newproj/': NewProject,
     	'/projects/:page?': Projects,
+		'/project/:contract/:hash': ProjectDetail,
     	'*': Homepage,
 	}
 

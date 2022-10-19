@@ -66,6 +66,7 @@
             <div 
                 transition:scale|local={{ start: 0.7 }}
                 animate:flip={{ duration: 200 }}
+                class="lgmargin"
             >
                 <ProjectPreview project={project} />
             </div>
@@ -82,7 +83,11 @@
             />
   	    {/if}
     </div>
-    <p>Projects page {params.page + 1}</p>
+    <p>Projects page {+params.page + 1}</p>
 </section>
 
-
+<style lang="scss">
+    .lgmargin {
+        margin: 0 0 2.5rem 0;
+    }
+</style>

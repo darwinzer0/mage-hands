@@ -17,10 +17,13 @@
   	import CharacterCounter from '@smui/textfield/character-counter/index';
 	import LayoutGrid from '@smui/layout-grid';
 	import { Label } from '@smui/button';
-
+	import Cell from "@smui/layout-grid/Cell.svelte";
     import MultiSelect from 'svelte-multiselect';
 	import Editor from './Editor.svelte';
 	import RewardEditor from "./RewardEditor.svelte";
+	import pako from "pako";
+    import { PlatformContractInstance, PlatformCreateMsg } from './lib/contracts';
+    import { daysInBlocks, entropy, getBlock } from "./lib/utils";
 
 	const platform: PlatformContractInstance = new PlatformContractInstance("platform", PLATFORM_CODE_HASH, PLATFORM_CONTRACT);
 	const denominations = [
@@ -52,10 +55,6 @@
 	$: categoryIndexes = categories.map( (category) => {
 		return allCategories.indexOf(category);
 	});
-	import pako from "pako";
-    import { PlatformContractInstance, PlatformCreateMsg } from './lib/contracts';
-    import { daysInBlocks, entropy, getBlock } from "./lib/utils";
-    import Cell from "@smui/layout-grid/Cell.svelte";
 
     function clearFields() {
 		title = '';
@@ -79,7 +78,10 @@
     async function handleStartFundraising() {
 		const keplr = get(keplrStore);
     	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
-    	if (!keplrEnabled || !scrtAuthorized) {
+
+		if (invalidProject) {
+			toast.push("Missing required information");
+		} else if (!keplrEnabled || !scrtAuthorized) {
         	toast.push("Keplr not enabled");
     	} else {
 			const goalUScrt = (Math.floor(parseFloat(goal) * 1000000)).toString();
@@ -195,7 +197,7 @@
 							<CharacterCounter slot="helper">0 / 100</CharacterCounter>
 						</Textfield>
 					</div>
-					<div class="solo-demo-container-no-border solo-container">
+					<div class="solo-demo-container-no-border margins">
 						<MultiSelect
 							bind:selected={categories} 
 							options={allCategories} 
@@ -208,6 +210,8 @@
 							--sms-li-selected-bg="var(--pure-white, white)"
 							--sms-token-padding="0.5ex 0 0.5ex 1ex"
 							--sms-font-size="24px"
+							--sms-max-width="100%"
+							--sms-padding="1pt 3pt"
 							--sms-bg="var(--pure-white, white)"
 						/>
 					</div>
@@ -248,7 +252,7 @@
 				</Cell>
 				<Cell span={9}>
 					<div class="edmargin">
-						<Editor bind:data={description} editorId="descriptionEditor"/>
+						<Editor bind:outputData={description} editorId="descriptionEditor"/>
 					</div>
 				</Cell>
 			</LayoutGrid>
@@ -262,7 +266,7 @@
 				</Cell>
 				<Cell span={9}>
 					<div class="edmargin">
-						<Editor bind:data={pledged_message} editorId="pledgedMessageEditor"/>
+						<Editor bind:outputData={pledged_message} editorId="pledgedMessageEditor"/>
 					</div>
 				</Cell>
 				<Cell span={3}>
@@ -272,7 +276,7 @@
 				</Cell>
 				<Cell span={9}>
 					<div class="edmargin">
-						<Editor bind:data={funded_message} editorId="fundedMessageEditor"/>
+						<Editor bind:outputData={funded_message} editorId="fundedMessageEditor"/>
 					</div>
 				</Cell>
 				<Cell span={3}>
@@ -283,7 +287,7 @@
 				<Cell span={9}>
 					<div class="edmargin">
 						{#each reward_messages as reward_message, i}
-							<RewardEditor bind:data={reward_messages} messageIdx={i} editorId={"rewardMessageId"+i} />
+							<RewardEditor bind:outputData={reward_messages} messageIdx={i} editorId={"rewardMessageId"+i} />
 							<div class="solo-demo-container solo-container">
 								Threshold:
 								<Paper class="solo-paper" elevation={6}>
@@ -329,7 +333,7 @@
 		
 					<div class="margins">
 						<div class="solo-demo-container-no-border solo-container">
-							<button on:click={() => handleStartFundraising()} disabled={invalidProject} class="button-beach">
+							<button on:click={() => handleStartFundraising()} class="button-beach">
 								<Label>Start Fundraising</Label>
 							</button>
 						</div>

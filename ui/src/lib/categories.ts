@@ -6,3 +6,9 @@ export const allCategories = [
     `Food & Beverages`, `Health & Fitness`, `Home`, `Phones & Accessories`, `Productivity`, `Transportation`,
     `Travel & Outdoors`, `Culture`, `Environment`, `Human Rights`, `Local Business`, `Wellness`
 ];
+
+export function categoryLabels(categories: number[]) {
+    return categories.map( category => {
+        return allCategories[category];
+    })
+}

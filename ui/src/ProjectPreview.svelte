@@ -1,10 +1,11 @@
 <script lang="ts">
     import { toast } from '@zerodevx/svelte-toast';
+	import { push } from 'svelte-spa-router';
 	import { CHAIN_ID, getSignature, KeplrStore } from './stores/keplr';
 	import { permitName } from './stores/permits';
 	import { holdForKeplr } from './lib/wallet';
     import { ContractInfo, } from './lib/contract';
-    import { allCategories } from './lib/categories';
+	import { categoryLabels } from './lib/categories';
 
     import Chip, { Set, Text } from '@smui/chips';
 	import Paper from '@smui/paper';
@@ -12,7 +13,7 @@
 	import { permitsStore, } from './stores/permits';
     import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, } from './lib/contracts';
     import { SecretNetworkClient, Permit } from 'secretjs';
-	import { getBlock } from './lib/utils';
+	import { getBlock, timeUntilDeadline } from './lib/utils';
 
     let keplr: KeplrStore;
 
@@ -59,28 +60,19 @@
 			if (permit) {
 				const queryMsg = { status_with_permit: { permit } };
 				projectStatus = await projectContract.queryStatusPermit(scrtClient, permit);
-				toast.push(JSON.stringify(projectStatus));
-				goalNum = parseFloat(projectStatus.goal) / 1000000;
-            	totalNum = parseFloat(projectStatus.total) / 1000000;
 			} else {
 				const queryMsg = { status: {} };
 				projectStatus = await projectContract.queryStatus(scrtClient);
-				goalNum = parseFloat(projectStatus.goal) / 1000000;
-            	totalNum = parseFloat(projectStatus.total) / 1000000;
 			}
+			goalNum = parseFloat(projectStatus.goal) / 1000000;
+            totalNum = parseFloat(projectStatus.total) / 1000000;
         }
     }
 
     loadProject();
 
 	function handleProjectClick() {
-		toast.push("Clicked the paper");
-	}
-
-    function categoryLabels(categories: number[]) {
-		return categories.map( category => {
-			return allCategories[category];
-		})
+		push(`/project/${project.address}/${project.code_hash}`);
 	}
 </script>
 
@@ -97,10 +89,10 @@
 		{:else if projectStatus.status === "expired"}
 			<h1 class="expired">Not funded</h1>
 		{/if}
-		<pre>Creator: {projectStatus.creator}</pre>
+		<p>Creator: {projectStatus.creator}</p>
 		<h1>{projectStatus.title}</h1>
 		<h2>{projectStatus.subtitle}</h2>
-		<h3>Deadline: {projectStatus.deadline}</h3>
+		<h3>Deadline: {timeUntilDeadline(currentBlock, projectStatus.deadline)}</h3>
 		<h3>{totalNum} out of {goalNum} SCRT funded</h3>
 		{#if projectStatus.contribution}
 			<h3>Your contribution: {projectStatus.contribution} sSCRT</h3>
@@ -112,9 +104,6 @@
 		</Set>
 	</Paper>
 {/if}
-
-<div>{project.address}</div>
-<div>{project.code_hash}</div>
 
 <style>
 

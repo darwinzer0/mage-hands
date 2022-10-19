@@ -27,3 +27,35 @@ export const getBlock = async (scrtClient: SecretNetworkClient) : Promise<number
     const block = parseInt(latestBlockResponse.block.header.height);
     return block;
 }
+
+export const timeUntilDeadline = (currentBlock: number, deadline: number): string => {
+    if (deadline < currentBlock) {
+        const diff = currentBlock - deadline;
+        if (diff > daysInBlocks(1)) {
+            const days = Math.floor(diff / (24 * 60 * 10));
+            return days === 1 ? `${days} day ago` : `${days} days ago`;
+        } else if (diff > hoursInBlocks(1)) {
+            const hours = Math.floor(diff / (60 * 10));
+            return hours === 1 ? `${hours} hour ago` : `${hours} hours ago`;
+        } else if (diff > minutesInBlocks(1)) {
+            const minutes = Math.floor(diff / 10);
+            return minutes === 1 ? `${minutes} minute ago` : `${minutes} minutes ago`;
+        } else {
+            return `less than one minute ago`;
+        }
+    } else {
+        const diff = deadline - currentBlock;
+        if (diff > daysInBlocks(1)) {
+            const days = Math.floor(diff / (24 * 60 * 10));
+            return days === 1 ? `${days} day` : `${days} days`;
+        } else if (diff > hoursInBlocks(1)) {
+            const hours = Math.floor(diff / (60 * 10));
+            return hours === 1 ? `${hours} hour` : `${hours} hours`;
+        } else if (diff > minutesInBlocks(1)) {
+            const minutes = Math.floor(diff / 10);
+            return minutes === 1 ? `${minutes} minute` : `${minutes} minutes`;
+        } else {
+            return `less than one minute`;
+        }
+    }
+}
