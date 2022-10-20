@@ -31,6 +31,7 @@ pub enum ExecuteMsg {
         title: String,
         subtitle: Option<String>,
         description: String,
+        cover_img: String,
         pledged_message: Option<String>,
         funded_message: Option<String>,
         reward_messages: Vec<RewardMessage>,

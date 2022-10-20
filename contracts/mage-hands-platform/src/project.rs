@@ -9,6 +9,7 @@ pub struct ProjectInstantiateMsg {
     pub title: String,
     pub subtitle: Option<String>,
     pub description: String,
+    pub cover_img: String,
     // message for people who have pledged money before funding has been completed
     pub pledged_message: Option<String>,
     // message for people who have contributed money after project is successfully funded
