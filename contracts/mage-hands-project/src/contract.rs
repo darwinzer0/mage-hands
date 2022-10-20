@@ -25,7 +25,7 @@ use crate::state::{
     push_comment, get_comments, set_spam_flag, get_spam_count, set_snip24_reward, set_reward_messages, 
     get_reward_messages, get_snip24_reward, set_snip24_reward_address, get_snip24_reward_address, 
     set_creator_snip24_allocation_received, get_creator_snip24_allocation_received, set_funder, 
-    set_pledge_minmax, get_pledge_minmax, set_bin_data, SPAM_COUNT_KEY,
+    set_pledge_minmax, get_pledge_minmax, set_bin_data, SPAM_COUNT_KEY, set_cover_img, get_cover_img,
 };
 use crate::utils::space_pad;
 use crate::viewing_key::{ViewingKey, VIEWING_KEY_SIZE};
@@ -69,6 +69,7 @@ pub fn instantiate(
     let subtitle = msg.subtitle.unwrap_or_else(|| String::from(""));
     set_subtitle(deps.storage, subtitle)?;
     set_description(deps.storage, msg.description)?;
+    set_cover_img(deps.storage, msg.cover_img)?;
     let pledged_message = msg.pledged_message.unwrap_or_else(|| String::from(""));
     set_pledged_message(deps.storage, pledged_message)?;
     let funded_message = msg.funded_message.unwrap_or_else(|| String::from(""));
@@ -1031,6 +1032,8 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
 
     let description = get_description(deps.storage);
 
+    let cover_img = get_cover_img(deps.storage);
+
     let categories = get_categories(deps.storage)?;
 
     let spam_count = get_spam_count(deps.storage)?;
@@ -1050,6 +1053,7 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
         title,
         subtitle,
         description,
+        cover_img,
         categories,
         spam_count,
         snip20_address,
@@ -1096,6 +1100,7 @@ fn query_status_auth(
     let title = get_title(deps.storage);
     let subtitle = get_subtitle(deps.storage);
     let description = get_description(deps.storage);
+    let cover_img = get_cover_img(deps.storage);
 
     let categories = get_categories(deps.storage)?;
 
@@ -1186,6 +1191,7 @@ fn query_status_auth(
         title,
         subtitle,
         description,
+        cover_img,
         categories,
         spam_count,
         snip20_address,

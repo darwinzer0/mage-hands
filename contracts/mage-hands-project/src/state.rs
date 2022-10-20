@@ -18,6 +18,7 @@ pub static CREATOR_KEY: &[u8] = b"crea";
 pub static TITLE_KEY: &[u8] = b"titl";
 pub static SUBTITLE_KEY: &[u8] = b"subt";
 pub static DESCRIPTION_KEY: &[u8] = b"desc";
+pub static COVER_IMG_KEY: &[u8] = b"covr";
 pub static PLEDGED_MESSAGE_KEY: &[u8] = b"plms";
 pub static FUNDED_MESSAGE_KEY: &[u8] = b"fnms";
 pub static GOAL_KEY: &[u8] = b"goal";
@@ -139,6 +140,18 @@ pub fn get_description(storage: &dyn Storage) -> String {
         Err(_) => vec![],
     };
     String::from_utf8(stored_description).ok().unwrap_or_default()
+}
+
+pub fn set_cover_img(storage: &mut dyn Storage, cover_img: String) -> StdResult<()> {
+    set_bin_data(storage, COVER_IMG_KEY, &cover_img.as_bytes().to_vec())
+}
+
+pub fn get_cover_img(storage: &dyn Storage) -> String {
+    let stored_cover_img: Vec<u8> = match get_bin_data(storage, COVER_IMG_KEY) {
+        Ok(cover_img) => cover_img,
+        Err(_) => vec![],
+    };
+    String::from_utf8(stored_cover_img).ok().unwrap_or_default()
 }
 
 pub fn set_pledged_message(storage: &mut dyn Storage, pledged_message: String) -> StdResult<()> {
