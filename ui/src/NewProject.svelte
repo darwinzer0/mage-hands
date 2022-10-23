@@ -14,16 +14,18 @@
     import Paper from '@smui/paper';
     import { Input } from '@smui/textfield';
 	import Textfield from '@smui/textfield';
-  	import CharacterCounter from '@smui/textfield/character-counter/index';
-	import LayoutGrid from '@smui/layout-grid';
+  	import CharacterCounter from '@smui/textfield/character-counter';
+	import LayoutGrid, { Cell, InnerGrid } from '@smui/layout-grid';
 	import { Label } from '@smui/button';
-	import Cell from "@smui/layout-grid/Cell.svelte";
+    import FormField from '@smui/form-field';
+	import Switch from "@smui/switch";
     import MultiSelect from 'svelte-multiselect';
 	import Editor from './Editor.svelte';
 	import RewardEditor from "./RewardEditor.svelte";
 	import pako from "pako";
     import { PlatformContractInstance, PlatformCreateMsg } from './lib/contracts';
     import { daysInBlocks, entropy, getBlock } from "./lib/utils";
+	import Resizer from "react-image-file-resizer"; 
 
 	const platform: PlatformContractInstance = new PlatformContractInstance("platform", PLATFORM_CODE_HASH, PLATFORM_CONTRACT);
 	const denominations = [
@@ -39,15 +41,48 @@
 	let subtitle: string = '';
 	let categories: string[] = [];
 	let description: string = '';
+	let rawlog: string = '';
+
+	const resize = Resizer.imageFileResizer;
+	let rawInput; 
+	let cover_img: string = '';
+
 	let pledged_message: string = '';
 	let funded_message: string = '';
 	let reward_messages: RewardMessage[] = [];
     let deadline: number = 14;
 	let goal: string = '';
-	let denom = 0;
+
+	// snip24
+	type VestingEvent = {
+		days: number;
+		percentage: number;
+	};
+
+	let snip24Enabled: boolean = false;
+
+	let snip24Name: string = '';
+	let snip24Symbol: string = '';
+	let snip24Decimals: number = 6;
+	let snip24Admin: string = '';
+	let enablePublicTokenSupply: boolean = true;
+	let enableDeposit: boolean = false;
+	let enableRedeem: boolean = false;
+	let enableMint: boolean = false;
+	let enableBurn: boolean = false;
+
+	let numberOfTokens: string = '';
+
+	let contributorPctTokens: string = '';
+	let contributorVestingSchedule: VestingEvent[] = [];
+
+	let snip24MinContribution: string = '';
+	let snip24MaxContribution: string = '';
+	let snip24;
+
 	let result: CreateResponse;
 
-	const subscreens = ["Basics", "Details", "Rewards", "Upload"];
+	const subscreens = ["Basics", "Details", "Rewards", "Tokens", "Upload"];
 	let subscreen: string = subscreens[0];
 	const deadlineOptions = [14, 30, 60];
 
@@ -66,7 +101,6 @@
 		reward_messages = [];
 		goal = '';
 		deadline = null;
-		denom = 0;
 		result = null;
 	}
 
@@ -104,6 +138,7 @@
 				title,
 				subtitle,
 				description: pakoDescription,
+				cover_img, 
 				pledged_message: pakoPledgedMessage,
 				funded_message: pakoFundedMessage,
 				reward_messages: pakoRewardMessages,
@@ -117,7 +152,9 @@
 
 			try {				
 				const tx = await platform.create(scrtClient, platformCreateMsg);
+				rawlog = tx.rawLog;
 				result = JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data));
+				//toast.push(JSON.stringify(result));
 				if (result.create && result.create.status === "success") {
 					clearFields();
 					push('/projects/0');
@@ -126,6 +163,7 @@
 					toast.push("Error creating fundraising project");
 				}
 			} catch (error) {
+				//toast.push(error.toString());
         		toast.push("Error creating fundraising project");
     		}
 		}
@@ -137,10 +175,38 @@
 		}
 	}
 
+	function handleSymbolInput(event) {
+		if (event.target.value) {
+			snip24Symbol = event.target.value.toUpperCase();
+		}
+	}
+
+	function handleDecimalsInput(event) {
+		if (event.target.valueAsNumber < 0) {
+			snip24Decimals = 0;
+		}
+		if (event.target.valueAsNumber > 18) {
+			snip24Decimals = 18;
+		}
+	}
+
 	function handleAddRewardMessage() {
 		reward_messages.push({ message: "", threshold: 0 });
 		reward_messages = reward_messages;
 	}
+
+	const resizeImage = (img): Promise<string | Blob | File | ProgressEvent<FileReader>> => {
+        return new Promise((resolve, reject) => {
+           resize(img, 250, 250, "WEBP", 100, 0, uri => resolve(uri), 'base64');
+        });
+    };
+
+	const onFileChange = async () => {
+		if (rawInput && rawInput.files.length > 0) {
+			const file = rawInput.files[0];
+			cover_img = (await resizeImage(file)) as string;
+		}
+	};
 </script>
 
 <svelte:head>
@@ -171,65 +237,81 @@
 					</p>
 				</Cell>
 				<Cell span={9}>
-					<div class="margins">
-						<Textfield
-							style="width: 100%;"
-							helperLine$style="width: 100%;"
-							variant="outlined"
-							bind:value={title}
-							label="Title"
-							input$maxlength={100}
-							input$style="font-size:28px;"
-						>
-							<CharacterCounter slot="helper">0 / 100</CharacterCounter>
-						</Textfield>
-					</div>
-					<div>
-						<Textfield
-							style="width: 100%;"
-							helperLine$style="width: 100%;"
-							variant="outlined"
-							bind:value={subtitle}
-							label="Subtitle"
-							input$maxlength={100}
-							input$style="font-size:24px;"
-						>
-							<CharacterCounter slot="helper">0 / 100</CharacterCounter>
-						</Textfield>
-					</div>
-					<div class="solo-demo-container-no-border margins">
-						<MultiSelect
-							bind:selected={categories} 
-							options={allCategories} 
-							maxSelect={3}
-							placeholder="Categories..."
-							--sms-options-bg="var(--pure-white, white)"
-							--sms-token-bg="var(--pure-white)"
-							--sms-text-color="var(--secondary-color)"
-							--sms-li-selected-color="var(--secondary-color)"
-							--sms-li-selected-bg="var(--pure-white, white)"
-							--sms-token-padding="0.5ex 0 0.5ex 1ex"
-							--sms-font-size="24px"
-							--sms-max-width="100%"
-							--sms-padding="1pt 3pt"
-							--sms-bg="var(--pure-white, white)"
-						/>
-					</div>
-					<div class="margins">
-						<div class="solo-demo-container solo-container">
-							<Paper class="solo-paper" elevation={6}>
-								<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
-								<Input
-									bind:value={goal}
-									placeholder="Amount you want to raise"
-									class="solo-input"
-									type="number"
-									style="font-size:20px;"
-									on:input={handleNonNegativeInput}
-								/>
-							</Paper>
-						</div>
-					</div>
+					<InnerGrid>
+						<Cell span={12}>
+							<Textfield
+								style="width: 100%;"
+								helperLine$style="width: 100%;"
+								variant="outlined"
+								bind:value={title}
+								label="Title"
+								input$maxlength={100}
+								input$style="font-size:28px;"
+							>
+								<CharacterCounter slot="helper">0 / 100</CharacterCounter>
+							</Textfield>
+						</Cell>
+						<Cell span={12}>
+							<Textfield
+								style="width: 100%;"
+								helperLine$style="width: 100%;"
+								variant="outlined"
+								bind:value={subtitle}
+								label="Subtitle"
+								input$maxlength={100}
+								input$style="font-size:24px;"
+							>
+								<CharacterCounter slot="helper">0 / 100</CharacterCounter>
+							</Textfield>
+						</Cell>
+						<Cell span={3}>
+							<label for="imginput"><h2>Cover</h2></label>
+						</Cell>
+						<Cell span={9}>
+							<input
+								id="imginput"
+								bind:this={rawInput}
+								on:change={onFileChange}
+								  type="file"	
+							/>
+							{#if cover_img != ''}
+								<img src={cover_img} class="edmargin" />
+							{/if}
+						</Cell>
+						<Cell span={12}>
+							<MultiSelect
+								bind:selected={categories} 
+								options={allCategories} 
+								maxSelect={3}
+								placeholder="Categories..."
+								--sms-options-bg="var(--pure-white, white)"
+								--sms-token-bg="var(--pure-white)"
+								--sms-text-color="var(--secondary-color)"
+								--sms-li-selected-color="var(--secondary-color)"
+								--sms-li-selected-bg="var(--pure-white, white)"
+								--sms-token-padding="0.5ex 0 0.5ex 1ex"
+								--sms-font-size="24px"
+								--sms-max-width="100%"
+								--sms-padding="1pt 3pt"
+								--sms-bg="var(--pure-white, white)"
+							/>
+						</Cell>
+						<Cell span={12}>
+							<div class="solo-demo-container solo-container">
+								<Paper class="solo-paper" elevation={6}>
+									<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
+									<Input
+										bind:value={goal}
+										placeholder="Amount you want to raise"
+										class="solo-input"
+										type="number"
+										style="font-size:20px;"
+										on:input={handleNonNegativeInput}
+									/>
+								</Paper>
+							</div>
+						</Cell>
+					</InnerGrid>
 				</Cell>
 			</LayoutGrid>
 		</div>
@@ -251,9 +333,14 @@
 					</p>
 				</Cell>
 				<Cell span={9}>
-					<div class="edmargin">
-						<Editor bind:outputData={description} editorId="descriptionEditor"/>
-					</div>
+					<InnerGrid>
+						<Cell span={12}>
+							<h2>Project description</h2>
+						</Cell>
+						<Cell span={12}>
+							<Editor bind:outputData={description} editorId="descriptionEditor"/>
+						</Cell>
+					</InnerGrid>
 				</Cell>
 			</LayoutGrid>
 		</div>
@@ -265,9 +352,14 @@
 					</p>
 				</Cell>
 				<Cell span={9}>
-					<div class="edmargin">
-						<Editor bind:outputData={pledged_message} editorId="pledgedMessageEditor"/>
-					</div>
+					<InnerGrid>
+						<Cell span={12}>
+							<h2>Pledged message</h2>
+						</Cell>
+						<Cell span={12}>
+							<Editor bind:outputData={pledged_message} editorId="pledgedMessageEditor"/>
+						</Cell>
+					</InnerGrid>
 				</Cell>
 				<Cell span={3}>
 					<p>
@@ -275,9 +367,14 @@
 					</p>
 				</Cell>
 				<Cell span={9}>
-					<div class="edmargin">
-						<Editor bind:outputData={funded_message} editorId="fundedMessageEditor"/>
-					</div>
+					<InnerGrid>
+						<Cell span={12}>
+							<h2>Funded message</h2>
+						</Cell>
+						<Cell span={12}>
+							<Editor bind:outputData={funded_message} editorId="fundedMessageEditor"/>
+						</Cell>
+					</InnerGrid>
 				</Cell>
 				<Cell span={3}>
 					<p>
@@ -285,32 +382,146 @@
 					</p>
 				</Cell>
 				<Cell span={9}>
-					<div class="edmargin">
+					<InnerGrid>
+						<Cell span={12}>
+							<h2>Reward messages</h2>
+						</Cell>
 						{#each reward_messages as reward_message, i}
-							<RewardEditor bind:outputData={reward_messages} messageIdx={i} editorId={"rewardMessageId"+i} />
-							<div class="solo-demo-container solo-container">
-								Threshold:
-								<Paper class="solo-paper" elevation={6}>
-									<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
-									<Input
-										bind:value={reward_messages[i].threshold}
-										placeholder="Reward threshold"
-										class="solo-input"
-										type="number"
-										style="font-size:16px;"
-										on:input={handleNonNegativeInput}
-									/>
-								</Paper>
-							</div>
+							<Cell span={12}>
+								<RewardEditor bind:outputData={reward_messages} messageIdx={i} editorId={"rewardMessageId"+i} />
+								<div class="solo-demo-container solo-container">
+									Threshold:
+									<Paper class="solo-paper" elevation={6}>
+										<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
+										<Input
+											bind:value={reward_messages[i].threshold}
+											placeholder="Reward threshold"
+											class="solo-input"
+											type="number"
+											style="font-size:16px;"
+											on:input={handleNonNegativeInput}
+										/>
+									</Paper>
+								</div>
+							</Cell>
 						{/each}
-						<button class="button-beach-sm" on:click={() => handleAddRewardMessage()} >
-							<Label>Message+</Label>
-						</button>
-					</div>
+						<Cell span={12}>
+							<button class="button-beach-sm" on:click={() => handleAddRewardMessage()} >
+								<Label>Message+</Label>
+							</button>
+						</Cell>
+					</InnerGrid>
 				</Cell>
 			</LayoutGrid>
 		</div>
 		<div class={subscreen === subscreens[3] ? "" : "hidden-div"}>
+			<LayoutGrid>
+				<Cell span={3}>
+					<p>
+						Select here if you want to issue a SNIP-24 token for your project.
+					</p>
+				</Cell>
+				<Cell span={9}>
+					<FormField>
+						<Switch bind:checked={snip24Enabled} />
+						<span slot="label">Add SNIP-24 Reward</span>
+					</FormField>
+				</Cell>
+				{#if snip24Enabled}
+					<Cell span={6}>
+						<Paper class="lightpaper" elevation={6}>
+							<h2>Details</h2>
+							<InnerGrid>
+								<Cell span={12}>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={snip24Name}
+										label="Name"
+										input$minlength={3}
+										input$maxlength={30}
+										input$style="font-size:20px;"
+									>
+										<CharacterCounter slot="helper">0 / 30</CharacterCounter>
+									</Textfield>
+								</Cell>
+								<Cell span={12}>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={snip24Symbol}
+										label="Symbol"
+										input$maxlength={12}
+										input$style="font-size:20px;"
+										on:input={handleSymbolInput}
+									>
+										<CharacterCounter slot="helper">0 / 6</CharacterCounter>
+									</Textfield>
+								</Cell>
+								<Cell span={12}>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={snip24Decimals}
+										label="Decimals"
+										input$maxlength={2}
+										input$style="font-size:20px;"
+										type="number"
+										on:input={handleDecimalsInput}
+									/>
+								</Cell>
+							</InnerGrid>
+						</Paper>
+					</Cell>
+					<Cell span={6}>
+						<Paper elevation={6}>
+							<h2>Token configuration</h2>
+							<InnerGrid>
+								<Cell span={12}>
+									<FormField>
+										<Switch bind:checked={enablePublicTokenSupply} />
+										<span slot="label">Enable public token supply</span>
+									</FormField>
+								</Cell>
+								<Cell span={12}>
+									<FormField>
+										<Switch bind:checked={enableDeposit} />
+										<span slot="label">Enable deposit</span>
+									</FormField>
+								</Cell>
+								<Cell span={12}>
+									<FormField>
+										<Switch bind:checked={enableRedeem} />
+										<span slot="label">Enable redeem</span>
+									</FormField>
+								</Cell>
+								<Cell span={12}>
+									<FormField>
+										<Switch bind:checked={enableMint} />
+										<span slot="label">Enable mint</span>
+									</FormField>
+								</Cell>
+								<Cell span={12}>
+									<FormField>
+										<Switch bind:checked={enableBurn} />
+										<span slot="label">Enable burn</span>
+									</FormField>
+								</Cell>
+							</InnerGrid>
+						</Paper>
+					</Cell>
+					<Cell span={6}>
+						<Paper elevation={6}>
+							<h2>Token disbursement</h2>
+						</Paper>
+					</Cell>
+				{/if}
+			</LayoutGrid>
+		</div>
+		<div class={subscreen === subscreens[4] ? "" : "hidden-div"}>
 			<LayoutGrid>
 				<Cell span={3}>
 					<p>
@@ -342,121 +553,13 @@
 			</LayoutGrid>
 		</div>
 	</Paper>
+	{rawlog}
 </section>
 
 <style lang="scss">
-    @import url("https://fonts.googleapis.com/css?family=Raleway:500");
+    /* @import url("https://fonts.googleapis.com/css?family=Raleway:500"); */
 
-	.button-beach-sm-selected {
-		-webkit-appearance: none;
-        background: -webkit-gradient(to left, #064a45 0%, #fceeb5 50%, #340c62 100%);
-        background: linear-gradient(to left, #064a45 0%, #fceeb5 50%, #340c62 100%);
-        background-size: 500%;
-        border: none;
-        border-radius: 5rem;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        color: #fff;
-        cursor: pointer;
-        font: 1em Raleway, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        height: 3.5rem;
-        letter-spacing: 0.05em;
-        outline: none;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        width: 10rem;
-		margin: 1rem 1rem 1rem 1rem;
-	}
-
-	.button-beach-sm {
-        -webkit-appearance: none;
-		background: -webkit-gradient(to right, #064a45 0%, #fceeb5 50%, #340c62 100%);
-        background: linear-gradient(to right, #064a45 0%, #fceeb5 50%, #340c62 100%);
-/*
-        background: -webkit-gradient(to right, #064a45 0%, #fceeb5 50%, #ee786e 100%);
-        background: linear-gradient(to right, #064a45 0%, #fceeb5 50%, #ee786e 100%);
-*/
-        background-size: 500%;
-        border: none;
-        border-radius: 5rem;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        color: #fff;
-        cursor: pointer;
-        font: 1em Raleway, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        height: 3.5rem;
-        letter-spacing: 0.05em;
-        outline: none;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        width: 10rem;
-		margin: 1rem 1rem 1rem 1rem;
-    }
-
-	.button-beach-sm:hover {
-        animation-name: gradient;
-        -webkit-animation-name: gradient;
-        animation-duration: 1.5s;
-        -webkit-animation-duration: 1.5s;
-        animation-iteration-count: 1;
-        -webkit-animation-iteration-count: 1;
-        animation-fill-mode: forwards;
-        -webkit-animation-fill-mode: forwards;
-    }
-
-    .button-beach {
-        -webkit-appearance: none;
-        background: -webkit-gradient(to right, #064a45 0%, #fceeb5 50%, #340c62 100%);
-        background: linear-gradient(to right, #064a45 0%, #fceeb5 50%, #340c62 100%);
-        background-size: 500%;
-        border: none;
-        border-radius: 5rem;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        color: #fff;
-        cursor: pointer;
-        font: 1.5em Raleway, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        height: 5rem;
-        letter-spacing: 0.05em;
-        outline: none;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        width: 20rem;
-    }
-
-    .button-beach:hover {
-        animation-name: gradient;
-        -webkit-animation-name: gradient;
-        animation-duration: 1.5s;
-        -webkit-animation-duration: 1.5s;
-        animation-iteration-count: 1;
-        -webkit-animation-iteration-count: 1;
-        animation-fill-mode: forwards;
-        -webkit-animation-fill-mode: forwards;
-    }
-
-    @keyframes gradient {
-        0% {
-            background-position: 0% 50%;
-        }
-        100% {
-            background-position: 100%;
-        }
-    }
-
-	button {
+/*	button {
 		background: var(--accent-color-dark);
 		color: #fff;
 		border: 0;
@@ -465,12 +568,16 @@
 		border-radius: 6px;
 		cursor: pointer;
 	}
-
+*/
 	.newproj {
 		width: 100%;
 		max-width: var(--column-width);
 		margin: 0 auto 0 auto;
 		line-height: 1;
+	}
+
+	.file-input {
+		font-size: 24px;
 	}
 
 	.margins {
@@ -485,33 +592,13 @@
 		margin: 0 0 2.5rem 0;
 	}
 
-	* :global(.shaped-outlined),
-	* :global(.shaped-outlined .mdc-select__anchor) {
-    	border-radius: 28px;
-  	}
-  	* :global(.shaped-outlined .mdc-text-field__input) {
-    	padding-left: 32px;
-    	padding-right: 0;
-  	}
-  	* :global(.shaped-outlined
-      	.mdc-notched-outline
-      	.mdc-notched-outline__leading) {
-		border-radius: 28px 0 0 28px;
-		width: 28px;
-  	}
-  	* :global(.shaped-outlined
-      	.mdc-notched-outline
-    	.mdc-notched-outline__trailing) {
-		border-radius: 0 28px 28px 0;
-  	}
-	* :global(.shaped-outlined .mdc-notched-outline .mdc-notched-outline__notch) {
-    	max-width: calc(100% - 28px * 2);
-  	}
-  	* :global(.shaped-outlined.mdc-select--with-leading-icon
-    	.mdc-notched-outline:not(.mdc-notched-outline--notched)
-    	.mdc-floating-label) {
-    	left: 16px;
-  	}
+	.slider-select {
+		background-color: var(--primary-color);
+	}
+
+	.lightpaper {
+		color: var(--tertiary-color);
+	}
 
     .solo-demo-container {
         padding: 18px 10px;
@@ -537,10 +624,12 @@
         padding: 0 12px;
         height: 48px;
     }
+
     * :global(.solo-paper > *) {
         display: inline-block;
         margin: 0 12px;
     }
+
     * :global(.solo-input) {
         flex-grow: 1;
         color: white;

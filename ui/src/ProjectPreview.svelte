@@ -1,19 +1,19 @@
 <script lang="ts">
+	import { scale } from 'svelte/transition';
     import { toast } from '@zerodevx/svelte-toast';
 	import { push } from 'svelte-spa-router';
 	import { CHAIN_ID, getSignature, KeplrStore } from './stores/keplr';
 	import { permitName } from './stores/permits';
 	import { holdForKeplr } from './lib/wallet';
     import { ContractInfo, } from './lib/contract';
-	import { categoryLabels } from './lib/categories';
-
-    import Chip, { Set, Text } from '@smui/chips';
 	import Paper from '@smui/paper';
 
 	import { permitsStore, } from './stores/permits';
     import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, } from './lib/contracts';
     import { SecretNetworkClient, Permit } from 'secretjs';
-	import { getBlock, timeUntilDeadline } from './lib/utils';
+	import { getBlock } from './lib/utils';
+    import LayoutGrid from '@smui/layout-grid';
+    import ProjectPreviewCells from './ProjectPreviewCells.svelte';
 
     let keplr: KeplrStore;
 
@@ -37,7 +37,7 @@
 		currentBlock = await getBlock(scrtClient);
         if (scrtClient) {
 			let permit: Permit;
-			console.log(permits);
+			//console.log(permits);
 			if (permits[scrtClient.address]) {
 				permit = permits[scrtClient.address];
 			} else {
@@ -77,86 +77,17 @@
 </script>
 
 {#if projectStatus}
-	<Paper transition elevation={4} on:click={handleProjectClick}>
-		{#if projectStatus.status === "successful"}
-			<h1 class="successful">🎉 Successful 🎉</h1>
-		{:else if projectStatus.status === "fundraising"}
-			{#if currentBlock > projectStatus.deadline}
-				<h1 class="expired">Unsuccessful</h1>
-			{:else}
-				<h1 class="fundraising">Fundraising</h1>
-			{/if}
-		{:else if projectStatus.status === "expired"}
-			<h1 class="expired">Not funded</h1>
-		{/if}
-		<p>Creator: {projectStatus.creator}</p>
-		<h1>{projectStatus.title}</h1>
-		<h2>{projectStatus.subtitle}</h2>
-		<h3>Deadline: {timeUntilDeadline(currentBlock, projectStatus.deadline)}</h3>
-		<h3>{totalNum} out of {goalNum} SCRT funded</h3>
-		{#if projectStatus.contribution}
-			<h3>Your contribution: {projectStatus.contribution} sSCRT</h3>
-		{/if}
-		<Set chips={categoryLabels(projectStatus.categories)} let:chip nonInteractive>
-			<Chip {chip}>
-				<Text>{chip}</Text>
-			</Chip>
-		</Set>
-	</Paper>
+	<div class="lgmargin" transition:scale|local={{ start: 0.7 }}>
+		<Paper transition elevation={6} on:click={handleProjectClick}>
+			<LayoutGrid>
+				<ProjectPreviewCells bind:projectStatus bind:currentBlock bind:totalNum bind:goalNum />
+			</LayoutGrid>
+		</Paper>
+	</div>
 {/if}
 
-<style>
-
-	.fundraising {
-		font-size: 20px;
-		background-color: var(--accent-color);
-		color: black;
-		padding: 0.5rem;
-	}
-
-	.successful {
-		font-size: 20px;
-		background-color: lightgreen;
-		color: black;
-		padding: 0.5rem;
-	}
-
-	.expired {
-		font-size: 20px;
-		background-color: lightgrey;
-		color: black;
-		padding: 0.5rem;
-	}
-
-	* :global(.shaped-outlined),
-	* :global(.shaped-outlined .mdc-select__anchor) {
-    	border-radius: 28px;
-  	}
-  	* :global(.shaped-outlined .mdc-text-field__input) {
-    	padding-left: 32px;
-    	padding-right: 0;
-  	}
-  	* :global(.shaped-outlined
-      	.mdc-notched-outline
-      	.mdc-notched-outline__leading) {
-		border-radius: 28px 0 0 28px;
-		width: 28px;
-  	}
-  	* :global(.shaped-outlined
-      	.mdc-notched-outline
-    	.mdc-notched-outline__trailing) {
-		border-radius: 0 28px 28px 0;
-  	}
-	* :global(.shaped-outlined .mdc-notched-outline .mdc-notched-outline__notch) {
-    	max-width: calc(100% - 28px * 2);
-  	}
-  	* :global(.shaped-outlined.mdc-select--with-leading-icon
-    	.mdc-notched-outline:not(.mdc-notched-outline--notched)
-    	.mdc-floating-label) {
-    	left: 16px;
-  	}
-
-	* :global(.smui-paper) {
-		background-color: #ffffff08;
-	}
+<style lang="scss">
+    .lgmargin {
+        margin: 0 0 2.5rem 0;
+    }
 </style>

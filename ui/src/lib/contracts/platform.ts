@@ -1,4 +1,4 @@
-import { SecretNetworkClient, fromUtf8, Permit, Tx} from "secretjs";
+import { SecretNetworkClient, Tx} from "secretjs";
 import { ContractInstance } from "./contracts";
 import { ProjectRewardMessage, Snip24RewardInit } from "./project";
 
@@ -20,6 +20,7 @@ export type PlatformCreateMsg = {
     title: string;
     subtitle?: string;
     description: string;
+    cover_img: string;
     pledged_message?: string;
     funded_message?: string;
     reward_messages: ProjectRewardMessage[];
@@ -60,7 +61,7 @@ export type PlatformProjectsResult = {
 
 export class PlatformContractInstance extends ContractInstance {
 
-    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 750_000): Promise<Tx> {
+    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 2_500_000): Promise<Tx> {
         const msg = { create: createMsg };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;

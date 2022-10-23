@@ -91,6 +91,9 @@ async function connectKeplr(chainId: string, grpcWebUrl: string) {
         scrtAuthorized,
         scrtClient,
     };
+    window.addEventListener("keplr_keystorechange", () => {
+        window.location.reload();
+    });
     return keplr;
 }
 

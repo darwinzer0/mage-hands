@@ -87,7 +87,7 @@ h1 {
 
 h2 {
 	font-family: Raleway, sans-serif;
-	font-size: 1rem;
+	font-size: 1.5rem;
 }
 
 pre {
@@ -114,5 +114,110 @@ button:focus:not(:focus-visible) {
 @media (min-width: 720px) {
 	h1 {
 		font-size: 2.4rem;
+	}
+}
+
+.button-beach-sm-selected {
+	-webkit-appearance: none;
+	background: -webkit-gradient(to left, #064a45 0%, #909090 50%, #340c62 100%);
+	background: linear-gradient(to left, #064a45 0%, #909090 50%, #340c62 100%);
+	background-size: 500%;
+	border: none;
+	border-radius: 5rem;
+	box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+	color: #fff;
+	cursor: pointer;
+	font: 1em Raleway, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	height: 3.5rem;
+	letter-spacing: 0.05em;
+	outline: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	width: 10rem;
+	margin: 1rem 1rem 1rem 1rem;
+}
+
+.button-beach-sm {
+	-webkit-appearance: none;
+	background: -webkit-gradient(to right, #064a45 0%, #909090 50%, #340c62 100%);
+	background: linear-gradient(to right, #064a45 0%, #909090 50%, #340c62 100%);
+	background-size: 500%;
+	border: none;
+	border-radius: 5rem;
+	box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+	color: #fff;
+	cursor: pointer;
+	font: 1em Raleway, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	height: 3.5rem;
+	letter-spacing: 0.05em;
+	outline: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	width: 10rem;
+	margin: 1rem 1rem 1rem 1rem;
+}
+
+.button-beach-sm:hover {
+	animation-name: gradient;
+	-webkit-animation-name: gradient;
+	animation-duration: 1.5s;
+	-webkit-animation-duration: 1.5s;
+	animation-iteration-count: 1;
+	-webkit-animation-iteration-count: 1;
+	animation-fill-mode: forwards;
+	-webkit-animation-fill-mode: forwards;
+}
+
+.button-beach {
+	-webkit-appearance: none;
+	background: -webkit-gradient(to right, #064a45 0%, #909090 50%, #340c62 100%);
+	background: linear-gradient(to right, #064a45 0%, #909090 50%, #340c62 100%);
+	background-size: 500%;
+	border: none;
+	border-radius: 5rem;
+	box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+	color: #fff;
+	cursor: pointer;
+	font: 1.5em Raleway, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	height: 5rem;
+	letter-spacing: 0.05em;
+	outline: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	width: 20rem;
+}
+
+.button-beach:hover {
+	animation-name: gradient;
+	-webkit-animation-name: gradient;
+	animation-duration: 1s;
+	-webkit-animation-duration: 1s;
+	animation-iteration-count: 1;
+	-webkit-animation-iteration-count: 1;
+	animation-fill-mode: forwards;
+	-webkit-animation-fill-mode: forwards;
+}
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 50%;
+	}
+	100% {
+		background-position: 100%;
 	}
 }

@@ -144,7 +144,7 @@ export class Snip721ContractInstance extends ContractInstance {
     }
 
     async setMinters(secretjs: SecretNetworkClient, minters: string[]): Promise<boolean> {
-        const msg = { set_minters: { minters, padding: ":::::::::::::::::::::" } };
+        const msg = { set_minters: { minters } };
         const { data } = await this.exec(secretjs, msg, 100_000);
         return JSON.parse(fromUtf8(data[0])).set_minters.status === "success";
     }
@@ -158,7 +158,7 @@ export class Snip721ContractInstance extends ContractInstance {
         transfer?: Snip721AccessLevel,
         expires?: Snip721Expiration,
     ): Promise<Tx> {
-        const msg: Snip721SetWhitelistedApprovalMsg = { set_whitelisted_approval: { address, padding: ":::::::::::::::::::::" } };
+        const msg: Snip721SetWhitelistedApprovalMsg = { set_whitelisted_approval: { address } };
         if (tokenId !== undefined) {
             msg.set_whitelisted_approval.token_id = tokenId;
         }
@@ -185,7 +185,6 @@ export class Snip721ContractInstance extends ContractInstance {
     }
 
     async queryNftDossier(secretjs: SecretNetworkClient, tokenId: string, permit: Permit): Promise<Snip721NftDossierResult> {
-        // {"with_permit":{"query":{"nft_dossier":{"token_id":"'"$token_id"'"}},"permit":{"params":{"permit_name":"test","chain_id":"blabla","allowed_tokens":["'"$contract_addr"'"],"permissions":["owner"]},"signature":'"$permit"'}}}'
         const query = { with_permit: { query: { nft_dossier: { token_id: tokenId } }, permit } };
         const result = (await this.query(secretjs, query)) as Snip721NftDossierResult;
         return result;

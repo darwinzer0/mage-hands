@@ -7,6 +7,7 @@ export type ProjectInitMsg = {
     title: string;
     subtitle?: string;
     description: string;
+    cover_img: string;
     pledged_message?: string;
     funded_message?: string;
     reward_messages: ProjectRewardMessage[];
@@ -72,6 +73,7 @@ export type ProjectStatusResult = {
     title: string;
     subtitle: string;
     description: string;
+    cover_img: string;
     categories: number[];
     spam_count: number;
     snip20_address: string;
@@ -96,8 +98,17 @@ export type ProjectRewardMessage = {
     message: string;
 }
 
+export type ProjectComment = {
+    comment: string;
+    from_creator: boolean;
+}
+
 export type ProjectCommentsResult = {
-    comments: string[];
+    comments: ProjectComment[];
+}
+
+export type ProjectOuterCommentsResult = {
+    comments: ProjectCommentsResult;
 }
 
 export class ProjectContractInstance extends ContractInstance {
@@ -109,45 +120,45 @@ export class ProjectContractInstance extends ContractInstance {
     }
 
     async refund(secretjs: SecretNetworkClient, gasLimit: number = 300_000): Promise<Tx> {
-        const msg = { refund: { padding: "=========" } };
+        const msg = { refund: { } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async cancel(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
-        const msg = { cancel: { padding: "=========" } };
+    async cancel(secretjs: SecretNetworkClient, gasLimit: number = 200_000): Promise<Tx> {
+        const msg = { cancel: { } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async comment(secretjs: SecretNetworkClient, comment: string, gasLimit: number = 150_000): Promise<Tx> {
+    async comment(secretjs: SecretNetworkClient, comment: string, gasLimit: number = 200_000): Promise<Tx> {
         const msg = { comment: { comment, padding: "=========" }};
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async flag_spam(secretjs: SecretNetworkClient, flag: boolean, gasLimit: number = 150_000): Promise<Tx> {
-        const msg = { flag_spam: { flag, padding: "=========" }};
+    async flag_spam(secretjs: SecretNetworkClient, flag: boolean, gasLimit: number = 200_000): Promise<Tx> {
+        const msg = { flag_spam: { flag }};
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
     async payOut(secretjs: SecretNetworkClient, gasLimit: number = 300_000): Promise<Tx> {
-        const msg = { pay_out: { padding: "=========" } };
+        const msg = { pay_out: { } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
     async generateViewingKey(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<Tx> {
-        const msg = { generate_viewing_key: { entropy: entropy(), padding: "=========" } };
+        const msg = { generate_viewing_key: { entropy: entropy() } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
     async queryComments(secretjs: SecretNetworkClient, page: number = 0, page_size: number = 10): Promise<ProjectCommentsResult> {
         const query = { comments: { page, page_size } };
-        const result = (await this.query(secretjs, query)) as ProjectCommentsResult;
-        return result;
+        const result = (await this.query(secretjs, query)) as ProjectOuterCommentsResult;
+        return result.comments;
     }
 
     async queryStatus(secretjs: SecretNetworkClient): Promise<ProjectStatusResult> {

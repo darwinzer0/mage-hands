@@ -32,6 +32,7 @@
     .paper :global(h6) {
         color: black;
     }
+
     .ce-block__content, .ce-toolbar__content { max-width:calc(100% - 80px) !important; } .cdx-block { max-width: 100% !important; }
 </style>
 
@@ -123,12 +124,12 @@
             },
 
             marker: {
-                class:  Marker,
+                class: Marker,
                 shortcut: 'CMD+SHIFT+M'
             },
 
             code: {
-                class:  CodeTool,
+                class: CodeTool,
                 shortcut: 'CMD+SHIFT+C'
             },
 

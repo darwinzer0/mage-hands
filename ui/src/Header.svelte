@@ -24,7 +24,7 @@
 			<path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z" />
 		</svg>
 		<ul>
-			<li class:active={!($location.startsWith('/projects') || $location.startsWith('/newproj'))}><a href="#/">Home</a></li>
+			<li class:active={!($location.startsWith('/project') || $location.startsWith('/newproj'))}><a href="#/">Home</a></li>
 			<li class:active={$location.startsWith('/projects')}><a href="#/projects/0">Projects</a></li>
 			<li class:active={$location.startsWith('/newproj')}><a href="#/newproj">Create</a></li>
 		</ul>

@@ -1,19 +1,22 @@
 <script lang="ts">
+    import { scale } from 'svelte/transition';
+    import { keplrStore } from "./stores/keplr";
+	import { get } from 'svelte/store';
     import { toast } from '@zerodevx/svelte-toast';
     import { CHAIN_ID, getSignature, KeplrStore } from './stores/keplr';
     import { permitName } from './stores/permits';
 	import { holdForKeplr } from './lib/wallet';
-    import { ContractInfo, } from './lib/contract';
-    import { categoryLabels } from './lib/categories';
-    import Chip, { Set, Text } from '@smui/chips';
 	import Paper from '@smui/paper';
     import { permitsStore, } from './stores/permits';
-    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, } from './lib/contracts';
-    import Button, { Label } from '@smui/button';
+    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, SSCRT_CODE_HASH, SSCRT_CONTRACT, Snip20ContractInstance, ProjectCommentsResult, ProjectComment} from './lib/contracts';
+    import { Label } from '@smui/button';
+    import { Input } from '@smui/textfield';
     import { SecretNetworkClient, Permit } from 'secretjs';
-	import { getBlock, timeUntilDeadline } from './lib/utils';
+	import { getBlock } from './lib/utils';
     import Editor from './Editor.svelte';
     import pako from "pako";
+    import LayoutGrid, { Cell } from '@smui/layout-grid';
+    import ProjectPreviewCells from './ProjectPreviewCells.svelte';
 
     interface ProjectParams {
         contract: string;
@@ -24,6 +27,7 @@
 
     let keplr: KeplrStore;
 	const projectContract: ProjectContractInstance = new ProjectContractInstance("project-"+params.contract, params.hash, params.contract);
+    const sscrt: Snip20ContractInstance = new Snip20ContractInstance("sscrt", SSCRT_CODE_HASH, SSCRT_CONTRACT);
 
     let projectStatus: ProjectStatusResult = null;
     let goalNum: number = null;
@@ -34,6 +38,13 @@
     let pledgedMessageFromPako = null;
     let fundedMessageFromPako = null;
     let rewardMessagesFromPako = [];
+
+    let contributionValue = "";
+
+    let commentValue = "";
+    let commentsLoaded = 0;
+    let comments: ProjectComment[] = [];
+    let loadedAllComments = false;
 
     let permits;
 	permitsStore.subscribe(value => {
@@ -106,158 +117,283 @@
 	}
 
     async function handleContribute() {
-        console.log("contribute");
+        const keplr = get(keplrStore);
+    	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
+
+        if (!keplrEnabled || !scrtAuthorized) {
+        	toast.push("Keplr not enabled");
+    	} else if (contributionValue === '' || contributionValue === '0') {
+            toast.push("You must enter an amount to contribute");
+        } else {
+            try {
+                const contribution = (Math.floor(parseFloat(contributionValue) * 1000000)).toString();
+                await sscrt.send(scrtClient, projectContract.address, contribution);
+				toast.push(`Successfully contributed ${contributionValue} sSCRT`);
+                loadProject();
+            } catch (err) {
+                toast.push("Error sending contribution");
+            }
+        }
+        contributionValue = "";
+	}
+
+    function handleNonNegativeInput(event) {
+		if (event.target.valueAsNumber < 0) {
+			contributionValue = event.target.value.substring(1);
+		}
 	}
 
     async function handleRefund() {
-        console.log("refund");
+        const keplr = get(keplrStore);
+    	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
+
+        if (!keplrEnabled || !scrtAuthorized) {
+        	toast.push("Keplr not enabled");
+    	} else {
+            try {
+                await projectContract.refund(scrtClient);
+				toast.push(`Successfully refunded ${projectStatus.contribution} sSCRT`);
+                loadProject();
+            } catch (err) {
+                toast.push("Error executing refund transaction");
+            }
+        }
+        contributionValue = "";
     }
 
     async function handlePayOut() {
-        console.log("payout");
+        const keplr = get(keplrStore);
+    	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
+
+        if (!keplrEnabled || !scrtAuthorized) {
+        	toast.push("Keplr not enabled");
+    	} else {
+            try {
+                await projectContract.payOut(scrtClient);
+				toast.push(`Congratulations your crowdfunding has been paid out!`);
+                loadProject();
+            } catch (err) {
+                toast.push("Error executing pay out transaction");
+            }
+        }
+        contributionValue = "";
+    }
+
+    async function handleComment() {
+        const keplr = get(keplrStore);
+    	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
+
+        if (!keplrEnabled || !scrtAuthorized) {
+        	toast.push("Keplr not enabled");
+    	} else if (commentValue === '') {
+            toast.push("Comment is empty!")
+        } else {
+            try {
+                await projectContract.comment(scrtClient, commentValue);
+				toast.push(`Your comment has been added`);
+                comments.push({ comment: commentValue, from_creator: projectStatus.creator === scrtClient.address });
+                comments = comments;
+            } catch (err) {
+                toast.push("Error creating comment");
+            }
+        }
+        commentValue = "";
+    }
+
+    async function handleSpam() {
+        const keplr = get(keplrStore);
+    	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
+
+        if (!keplrEnabled || !scrtAuthorized) {
+        	toast.push("Keplr not enabled");
+        } else {
+            try {
+                await projectContract.flag_spam(scrtClient, true);
+				toast.push(`You have flagged this project as spam`);
+                loadProject();
+            } catch (err) {
+                toast.push("Error flagging spam");
+            }
+        }
+    }
+
+    async function loadComments() {
+        const keplr = get(keplrStore);
+    	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
+
+        if (!keplrEnabled || !scrtAuthorized) {
+        	toast.push("Keplr not enabled");
+        } else if (!loadedAllComments) {
+            const pageSize = 50;
+            let newComments = await projectContract.queryComments(scrtClient, commentsLoaded, pageSize);
+            if (newComments.comments.length > 0) {
+                comments.push(...newComments.comments);
+                comments = comments;
+                commentsLoaded = commentsLoaded + 1;
+            } else {
+                loadedAllComments = true;
+            }
+        }
     }
 </script>
 
 {#if projectStatus}
-    <Paper transition elevation={4}>
-        {#if projectStatus.status === "successful"}
-            <h1 class="successful">🎉 Successful 🎉</h1>
-        {:else if projectStatus.status === "fundraising"}
-            {#if currentBlock > projectStatus.deadline}
-                <h1 class="expired">Unsuccessful</h1>
-            {:else}
-                <h1 class="fundraising">Fundraising</h1>
-        {/if}
-        {:else if projectStatus.status === "expired"}
-            <h1 class="expired">Not funded</h1>
-        {/if}
-        <h1>{projectStatus.title}</h1>
-        <h2>{projectStatus.subtitle}</h2>
-        <p>Creator: {projectStatus.creator}</p>
-        <h3>Deadline: {timeUntilDeadline(currentBlock, projectStatus.deadline)}</h3>
-        <h3>{totalNum} out of {goalNum} SCRT funded</h3>
-        {#if projectStatus.contribution}
-            <h3>Your contribution: {projectStatus.contribution} sSCRT</h3>
-        {/if}
-        <Set chips={categoryLabels(projectStatus.categories)} let:chip nonInteractive>
-            <Chip {chip}>
-                <Text>{chip}</Text>
-            </Chip>
-        </Set>
-        <h4>Description</h4>
-        <div class="edmargin">
-            <Editor data={descriptionFromPako} editorId="descriptionReader" readOnly={true} />
-        </div>
-        {#if pledgedMessageFromPako}
-            <h4>Pledged message</h4>
-            <div class="edmargin">
-                <Editor data={pledgedMessageFromPako} editorId="pledgeMessageReader" readOnly={true} />
-            </div>
-        {/if}
-        {#if fundedMessageFromPako}
-            <h4>Funded message</h4>
-            <div class="edmargin">
-                <Editor data={fundedMessageFromPako} editorId="fundedMessageReader" readOnly={true} />
-            </div>
-        {/if}
-        {#if rewardMessagesFromPako.length > 0}
-            <h4>Reward messages</h4>
-            {#each rewardMessagesFromPako as rewardMessage, i}
-                <div class="edmargin">
-                    <Editor data={rewardMessage} editorId={"rewardMessageReader"+i} readOnly={true} />
-                </div>
-            {/each}
-        {/if}
-        <div class="submit">
-            {#if !doneProject(projectStatus) && !isProjectCreator(projectStatus.creator)}
-                <Button 
-                    on:click={() => handleContribute()} 
-                    variant="raised" 
-                    class="button-shaped-notch"
-                >
-                    <Label>Contribute</Label>
-                </Button>
-            {/if}
-            {#if projectStatus.contribution && projectStatus.status !== "successful"}
-                <Button 
-                    on:click={() => handleRefund()} 
-                    variant="raised" 
-                    class="button-shaped-notch"
-                >
-                    <Label>Refund</Label>
-                </Button>
-            {/if}
-        </div>
-
-        {#if isProjectCreator(projectStatus.creator) && readyForPayout(projectStatus)}
-            <div class="submit">
-                <Button 
-                    on:click={() => handlePayOut()} 
-                    variant="raised" 
-                    class="button-shaped-notch"
-                >
-                    <Label>Pay out</Label>
-                </Button>
-            </div>
-        {/if}
-    </Paper>
+    <div transition:scale|local={{ start: 0.7 }}>
+        <Paper transition elevation={4}>
+            <LayoutGrid>
+                <ProjectPreviewCells bind:projectStatus bind:currentBlock bind:totalNum bind:goalNum />
+                <Cell span={12}>
+                    <h4>Project Description</h4>
+                    <div class="edmargin">
+                        <Editor data={descriptionFromPako} editorId="descriptionReader" readOnly={true} />
+                    </div>
+                    {#if pledgedMessageFromPako}
+                        <h4>Pledged message</h4>
+                        <div class="edmargin">
+                            <Editor data={pledgedMessageFromPako} editorId="pledgeMessageReader" readOnly={true} />
+                        </div>
+                    {/if}
+                    {#if fundedMessageFromPako}
+                        <h4>Funded message</h4>
+                        <div class="edmargin">
+                            <Editor data={fundedMessageFromPako} editorId="fundedMessageReader" readOnly={true} />
+                        </div>
+                    {/if}
+                    {#if rewardMessagesFromPako.length > 0}
+                        <h4>Reward messages</h4>
+                        {#each rewardMessagesFromPako as rewardMessage, i}
+                            <div class="edmargin">
+                                <Editor data={rewardMessage} editorId={"rewardMessageReader"+i} readOnly={true} />
+                            </div>
+                        {/each}
+                    {/if}
+                </Cell>
+                <Cell span={12}>
+                    {#if !doneProject(projectStatus) && !isProjectCreator(projectStatus.creator)}
+                        <div class="solo-demo-container solo-container">
+                            <Paper class="solo-paper" elevation={6}>
+                                <img src="sscrt.svg" alt="sscrt" style="color:white;"/>
+                                <Input
+                                    bind:value={contributionValue}
+                                    placeholder="Amount you want to contribute"
+                                    class="solo-input"
+                                    type="number"
+                                    style="font-size:20px;"
+                                    on:input={handleNonNegativeInput}
+                                />
+                            </Paper>
+                            <button class="button-beach-sm" on:click={handleContribute} >
+                                <Label>Contribute</Label>
+                            </button>
+                        </div>
+                    {/if}
+                    <div class="solo-demo-container solo-container">
+                        {#if projectStatus.contribution && projectStatus.contribution !== '0' && projectStatus.status !== "successful"}
+                            <button class="button-beach-sm" on:click={handleRefund} >
+                                <Label>Refund</Label>
+                            </button>
+                        {/if}
+                        {#if isProjectCreator(projectStatus.creator) && readyForPayout(projectStatus)}
+                            <button class="button-beach-sm" on:click={handlePayOut} >
+                                <Label>Pay out</Label>
+                            </button>
+                        {/if}
+                        <Paper class="solo-paper" elevation={6}>
+                            <Input
+                                bind:value={commentValue}
+                                placeholder="Enter comment"
+                                class="solo-input"
+                                type="string"
+                                style="font-size:14px;"
+                            />
+                        </Paper>
+                        <button class="button-beach-sm" on:click={handleComment} >
+                            <Label>Comment</Label>
+                        </button>
+                        <button class="button-beach-sm" on:click={handleSpam} >
+                            <Label>Mark spam</Label>
+                        </button>
+                    </div>
+                    <div class="solo-demo-container">
+                        <h3>Comments</h3>
+                        {#each comments as comment}
+                            <p class={comment.from_creator ? 'creatorcomment' : ''}>{comment.comment}</p>
+                        {/each}
+                        <button class="textbtn" on:click={loadComments}>Load more...</button>
+                    </div>
+                </Cell>
+            </LayoutGrid>
+        </Paper>
+    </div>
 {/if}
 
-<style>
-
-    h1 {
-	    font-family: Raleway, sans-serif;
-	    font-size: 2rem;
-	    text-align: center;
-    }
-
-    h2 {
-	    font-family: Raleway, sans-serif;
-	    font-size: 1rem;
-        text-align: center;
-    }
-
-    h3 {
-		margin-left: 0.5rem;
-		font-size: 16px;
-	}
-
+<style lang="scss">	
 	h4 {
-		margin-left: 0.5rem;
 		font-size: 14px;
+        font-weight: 800;
 	}
 
-	p {
-		white-space: break-spaces;
-		margin-left: 0.5rem;
-	}
-
-    .fundraising {
-		font-size: 20px;
-		background-color: var(--accent-color);
-		color: black;
-		padding: 0.5rem;
-	}
-
-	.successful {
-		font-size: 20px;
-		background-color: lightgreen;
-		color: black;
-		padding: 0.5rem;
-	}
-
-	.expired {
-		font-size: 20px;
-		background-color: lightgrey;
-		color: black;
-		padding: 0.5rem;
-	}
-
-    .submit {
-		margin: auto;
-	}
+    p {
+        word-wrap: break-word;
+    }
 
     .edmargin {
 		margin: 1rem 0 0 0;
 	}
+
+    .solo-demo-container {
+        padding: 18px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .solo-demo-container-no-border {
+        padding: 18px 10px;
+    }
+ 
+    .solo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    * :global(.solo-paper) {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+        max-width: 430px;
+        margin: 0 12px;
+        padding: 0 12px;
+        height: 48px;
+    }
+
+    * :global(.solo-paper > *) {
+        display: inline-block;
+        margin: 0 12px;
+    }
+
+    * :global(.solo-input) {
+        flex-grow: 1;
+        color: white;
+        //color: var(--mdc-theme-on-surface, #000);
+    }
+
+    * :global(.solo-input::placeholder) {
+        //color: var(--mdc-theme-on-surface, #000);
+        color: white;
+        opacity: 0.7;
+    }
+
+    .textbtn {
+        color: white;
+        border: none;
+        background-color: inherit;
+        padding: 14px 28px;
+        font-size: 16px;
+        cursor: pointer;
+        display: inline-block;
+    }
+
+    .creatorcomment {
+        color: yellow;
+    }
 </style>
