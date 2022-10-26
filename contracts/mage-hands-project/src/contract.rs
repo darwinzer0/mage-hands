@@ -1,4 +1,5 @@
 use std::cmp::{min,};
+use std::mem::MaybeUninit;
 use primitive_types::U256;
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Env, Addr,
@@ -85,11 +86,7 @@ pub fn instantiate(
         snip24_allocation_received = vec![];
     } else {
         let snip24_reward_init = msg.snip24_reward_init.unwrap();
-        if snip24_reward_init.contributors_vesting_schedule.len() <= 1 {
-            snip24_allocation_received = vec![false];
-        } else {
-            snip24_allocation_received = snip24_reward_init.contributors_vesting_schedule.into_iter().map(|_| false).collect();
-        }
+        snip24_allocation_received = snip24_reward_init.creator_vesting_schedule.into_iter().map(|_| false).collect();
     }
     set_creator_snip24_allocation_received(deps.storage, snip24_allocation_received)?;
 
@@ -149,24 +146,20 @@ fn validate_snip24_reward_init(
 ) -> StdResult<()> {
     if reward_init.is_some() {
         let reward_init = reward_init.unwrap();
-        let sum = reward_init.contributors_vesting_schedule
-            .into_iter()
-            .map(|r| r.per_mille)
-            .reduce(|accum, item| { accum + item });
-        match sum {
-            Some(PER_MILLE_DENOM) => {},
-            None => {},
-            _ => { return Err(StdError::generic_err(format!("Contributors' vesting schedule per mille does not sum to {}", PER_MILLE_DENOM))); },
+        if reward_init.contributor_vesting_schedule.len() < 1 {
+            return Err(StdError::generic_err("Projects with snip24 rewards must have a contributor vesting schedule"));
         }
-
-        let sum = reward_init.creator_vesting_schedule
-            .into_iter()
-            .map(|r| r.per_mille)
-            .reduce(|accum, item| { accum + item });
-        match sum {
-            Some(PER_MILLE_DENOM) => {},
-            None => {},
-            _ => { return Err(StdError::generic_err(format!("Creator's vesting schedule per mille does not sum to {}", PER_MILLE_DENOM))); },
+        if reward_init.creator_vesting_schedule.len() < 1 {
+            return Err(StdError::generic_err("Projects with snip24 rewards must have a creator vesting schedule"));
+        }
+        if reward_init.maximum_contribution.is_some() {
+            let max_contribution = reward_init.maximum_contribution.unwrap();
+            if (reward_init.minimum_contribution.is_some()) {
+                let min_contribution = reward_init.minimum_contribution.unwrap();
+                if max_contribution < min_contribution {
+                    return Err(StdError::generic_err("Max contribution must be greater than min contribution for snip24 rewards"));
+                }
+            }
         }
     }
     Ok(())
@@ -402,11 +395,7 @@ fn try_receive(
                 snip24_rewards_received = vec![];
             } else {
                 let snip24_reward_init = snip24_reward_init.unwrap();
-                if snip24_reward_init.contributors_vesting_schedule.len() <= 1 {
-                    snip24_rewards_received = vec![false];
-                } else {
-                    snip24_rewards_received = snip24_reward_init.contributors_vesting_schedule.into_iter().map(|_| false).collect();
-                }
+                snip24_rewards_received = snip24_reward_init.contributor_vesting_schedule.into_iter().map(|_| false).collect();
             }
             add_funds(deps.storage, &sender_address_raw, anonymous, amount, snip24_rewards_received)?;
 
@@ -579,6 +568,13 @@ fn try_pay_out(
             let snip24_reward_init = get_snip24_reward(deps.storage, deps.api)?;
             if snip24_reward_init.is_some() {
                 let snip24_reward_init = snip24_reward_init.unwrap();
+                let mut initial_balance = Uint128::from(0_u128);
+                for event in snip24_reward_init.contributor_vesting_schedule {
+                    initial_balance = initial_balance + event.amount;
+                }
+                for event in snip24_reward_init.creator_vesting_schedule {
+                    initial_balance = initial_balance + event.amount;
+                }
 
                 // Creating a message to create new snip24 token
                 instantiate_message = Some(CosmosMsg::Wasm(WasmMsg::Instantiate {
@@ -593,7 +589,7 @@ fn try_pay_out(
                             InitialBalance {
                                 // allocate all coins to the project contract
                                 address: env.contract.address.clone(),
-                                amount: snip24_reward_init.amount,
+                                amount: initial_balance,
                             }
                         ]),
                         config: Some(InitConfig {
@@ -656,49 +652,50 @@ fn calculate_contributor_snip24_rewards(
     match snip24_reward_init {
         Some(snip24_reward_init) => { 
             let funder = get_funder(storage, &address)?;
+/* total calc needs fix
             let valid_amount: u128;
-            if funder.amount < snip24_reward_init.minimum_contribution.u128() {
+            let min_contribution = snip24_reward_init.minimum_contribution.unwrap_or(Uint128::from(0_u128)).u128();
+            if funder.amount < min_contribution {
                 result = vec![];
             } else {
-                let max_contribution = snip24_reward_init.maximum_contribution.u128();
+
+
+                let max_contribution = snip24_reward_init.maximum_contribution.unwrap_or(Uint128::from(0_u128)).u128();
                 if max_contribution == 0_u128 {
                     valid_amount = funder.amount;
                 } else {
                     valid_amount = min(funder.amount, max_contribution);
                 }
+*/
 
                 let total = get_total(storage)?;
 
+                let mut contributor_tokens = Uint128::from(0_u128);
+                for event in snip24_reward_init.contributor_vesting_schedule.clone() {
+                    contributor_tokens = contributor_tokens + event.amount;
+                }
+
                 // assume linear allocation (TODO: others)
-                let total_reward_u256: U256 = U256::from(snip24_reward_init.amount.u128())
-                    .checked_mul(U256::from(snip24_reward_init.contributors_per_mille)).expect("Overflow when calculating reward")
-                    .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward")
-                    .checked_mul(U256::from(valid_amount)).expect("Overflow when calculating reward")
+                let total_reward_u256: U256 = U256::from(contributor_tokens.u128())
+                    //.checked_mul(U256::from(valid_amount)).expect("Overflow when calculating reward")
+                    .checked_mul(U256::from(funder.amount)).expect("Overflow when calculating reward")
                     .checked_div(U256::from(total)).expect("Div by zero when calculating reward");
 
-                // no vesting schedule for contributors
-                if snip24_reward_init.contributors_vesting_schedule.len() == 0 {
-                    result = vec![
+                result = snip24_reward_init.contributor_vesting_schedule
+                    .into_iter()
+                    .map(|event| {
+                        let partial_reward_u256: U256 = total_reward_u256
+                            .checked_mul(U256::from(event.amount.u128())).expect("Overflow when calculating reward")
+                            .checked_div(U256::from(contributor_tokens.u128())).expect("Div by zero when calculating reward");
                         VestingReward {
-                            block: 0_u64,
-                            amount: total_reward_u256.as_u128(),
+                            block: event.block,
+                            amount: partial_reward_u256.as_u128(),
                         }
-                    ];
-                } else {
-                    result = snip24_reward_init.contributors_vesting_schedule
-                        .into_iter()
-                        .map(|event| {
-                            let partial_reward_u256: U256 = U256::from(total_reward_u256)
-                                .checked_mul(U256::from(event.per_mille)).expect("Overflow when calculating reward")
-                                .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward");
-                            VestingReward {
-                                block: event.block,
-                                amount: partial_reward_u256.as_u128(),
-                            }
-                        })
-                        .collect();
-                }
+                    })
+                    .collect();
+/*
             }
+*/
         },
         None => { return Ok(None); }
     };
@@ -713,31 +710,24 @@ fn calculate_creator_snip24_allocation(
     let snip24_reward_init = get_snip24_reward(storage, api)?;
     match snip24_reward_init {
         Some(snip24_reward_init) => { 
-            let total_allocation_u256: U256 = U256::from(snip24_reward_init.amount.u128())
-                .checked_mul(U256::from(snip24_reward_init.creator_per_mille)).expect("Overflow when calculating reward")
-                .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward");
-            
-            if snip24_reward_init.creator_vesting_schedule.len() == 0 {
-                result = vec![
-                    VestingReward {
-                        block: 0_u64,
-                        amount: total_allocation_u256.as_u128(),
-                    }
-                ];
-            } else {
-                result = snip24_reward_init.creator_vesting_schedule
-                .into_iter()
-                .map(|event| {
-                    let partial_reward_u256: U256 = U256::from(total_allocation_u256)
-                        .checked_mul(U256::from(event.per_mille)).expect("Overflow when calculating reward")
-                        .checked_div(U256::from(PER_MILLE_DENOM)).expect("Div by zero when calculating reward");
-                    VestingReward {
-                        block: event.block,
-                        amount: partial_reward_u256.as_u128(),
-                    }
-                })
-                .collect();
+            let mut creator_tokens = Uint128::from(0_u128);
+            for event in snip24_reward_init.creator_vesting_schedule.clone() {
+                creator_tokens = creator_tokens + event.amount;
             }
+            let total_allocation_u256: U256 = U256::from(creator_tokens.u128());
+            
+            result = snip24_reward_init.creator_vesting_schedule
+            .into_iter()
+            .map(|event| {
+                let partial_reward_u256: U256 = total_allocation_u256
+                    .checked_mul(U256::from(event.amount.u128())).expect("Overflow when calculating reward")
+                    .checked_div(U256::from(creator_tokens.u128())).expect("Div by zero when calculating reward");
+                VestingReward {
+                    block: event.block,
+                    amount: partial_reward_u256.as_u128(),
+                }
+            })
+            .collect();
         },
         None => { return Ok(None) }
     };
