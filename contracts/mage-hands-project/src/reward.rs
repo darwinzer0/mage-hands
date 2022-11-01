@@ -22,7 +22,6 @@ pub struct Snip24RewardInit {
     pub enable_burn: bool,
 
     // timeline of release of tokens to contributors
-    // sum of per_mille in each VestingEvent must sum to 1000
     pub contributor_vesting_schedule: Vec<VestingEvent>,
     // minimum contribution to be eligible for reward
     pub minimum_contribution: Option<Uint128>,
@@ -79,7 +78,6 @@ pub struct StoredSnip24RewardInit {
     pub enable_burn: bool,
 
     // timeline of release of tokens to contributors
-    // sum of per_mille in each VestingEvent must sum to 1000
     pub contributor_vesting_schedule: Vec<VestingEvent>,
     // minimum contribution to be eligible for reward
     pub minimum_contribution: Option<u128>,
@@ -134,4 +132,35 @@ pub struct InitConfig {
     pub enable_redeem: Option<bool>,
     pub enable_mint: Option<bool>,
     pub enable_burn: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug,)]
+pub struct Snip24Info {
+    // snip24 params
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+    pub public_total_supply: bool,
+    pub enable_deposit: bool,
+    pub enable_redeem: bool,
+    pub enable_mint: bool,
+    pub enable_burn: bool,
+
+    // timeline of release of tokens to contributors
+    pub contributor_vesting_schedule: Vec<VestingEvent>,
+    // minimum contribution to be eligible for reward
+    pub minimum_contribution: Option<Uint128>,
+    // maximum amount of contribution applied to reward
+    // if maximum == 0 or < minimum, then there is no maximum
+    pub maximum_contribution: Option<Uint128>,
+    // contribution weighting: one of linear, sqrt, or log
+    // weighting is applied after minimum and maximum is applied
+    pub contribution_weight: u8,
+
+    // timeline of release of tokens to creator
+    pub creator_vesting_schedule: Vec<VestingEvent>,
+
+    // address of the snip24 contract once initiated
+    pub contract_address: Option<Addr>,
+    pub contract_hash: Option<String>,
 }

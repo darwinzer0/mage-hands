@@ -13,7 +13,7 @@ use crate::msg::{
     ResponseStatus::Failure, ResponseStatus::Success, PlatformQueryMsg, ValidatePermitResponse,
     ExecuteReceiveMsg,
 };
-use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit, VestingReward, VestingRewardStatus};
+use crate::reward::{RewardMessage, Snip24InstantiateMsg, InitConfig, InitialBalance, Snip24RewardInit, VestingReward, VestingRewardStatus, Snip24Info};
 use crate::state::{
     get_subtitle, set_subtitle,
     add_funds, clear_funds, get_categories, get_creator, get_deadline,
@@ -1032,6 +1032,27 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
     let snip20_address = deps.api.addr_humanize(&config.snip20_contract)?;
     let minmax_pledge = get_pledge_minmax(deps.storage)?;
 
+    let snip24 = get_snip24_reward(deps.storage, deps.api)?;
+    let snip24_info: Option<Snip24Info> = snip24.and_then(|token| { 
+        return Some(Snip24Info {
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+            public_total_supply: token.public_total_supply,
+            enable_deposit: token.enable_deposit,
+            enable_redeem: token.enable_redeem,
+            enable_mint: token.enable_mint,
+            enable_burn: token.enable_burn,
+            minimum_contribution: token.minimum_contribution,
+            maximum_contribution: token.maximum_contribution,
+            contributor_vesting_schedule: token.contributor_vesting_schedule,
+            creator_vesting_schedule: token.creator_vesting_schedule,
+            contribution_weight: token.contribution_weight,
+            contract_address: None,
+            contract_hash: None,
+        })
+    });
+
     to_binary(&QueryAnswer::Status {
         creator,
         status: status_string,
@@ -1049,6 +1070,7 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
         snip20_address,
         minimum_pledge: Uint128::from(minmax_pledge.min),
         maximum_pledge: Uint128::from(minmax_pledge.max),
+        snip24_info,
     })
 }
 
@@ -1099,6 +1121,27 @@ fn query_status_auth(
     let config = get_config(deps.storage)?;
     let snip20_address = deps.api.addr_humanize(&config.snip20_contract)?;
     let minmax_pledge = get_pledge_minmax(deps.storage)?;
+
+    let snip24 = get_snip24_reward(deps.storage, deps.api)?;
+    let snip24_info: Option<Snip24Info> = snip24.and_then(|token| { 
+        return Some(Snip24Info {
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+            public_total_supply: token.public_total_supply,
+            enable_deposit: token.enable_deposit,
+            enable_redeem: token.enable_redeem,
+            enable_mint: token.enable_mint,
+            enable_burn: token.enable_burn,
+            minimum_contribution: token.minimum_contribution,
+            maximum_contribution: token.maximum_contribution,
+            contributor_vesting_schedule: token.contributor_vesting_schedule,
+            creator_vesting_schedule: token.creator_vesting_schedule,
+            contribution_weight: token.contribution_weight,
+            contract_address: None,
+            contract_hash: None,
+        })
+    });
 
     let stored_funder = get_funder(deps.storage, &sender_address_raw);
 
@@ -1187,6 +1230,7 @@ fn query_status_auth(
         snip20_address,
         minimum_pledge: Uint128::from(minmax_pledge.min),
         maximum_pledge: Uint128::from(minmax_pledge.max),
+        snip24_info,
         pledged_message,
         funded_message,
         reward_messages,

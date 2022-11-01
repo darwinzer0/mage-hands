@@ -1,4 +1,4 @@
-use crate::reward::{Snip24RewardInit, RewardMessage, VestingRewardStatus};
+use crate::reward::{Snip24RewardInit, RewardMessage, VestingRewardStatus, Snip24Info};
 use crate::state::StoredComment;
 use crate::viewing_key::ViewingKey;
 use cosmwasm_std::{Addr, Uint128, Binary, };
@@ -206,6 +206,7 @@ pub enum QueryAnswer {
         snip20_address: Addr,
         minimum_pledge: Uint128,
         maximum_pledge: Uint128,
+        snip24_info: Option<Snip24Info>,
     },
     StatusAuth {
         creator: Addr,
@@ -223,7 +224,8 @@ pub enum QueryAnswer {
         spam_count: u32,
         snip20_address: Addr,
         minimum_pledge: Uint128,
-        maximum_pledge: Uint128,
+        maximum_pledge: Uint128, 
+        snip24_info: Option<Snip24Info>,
         pledged_message: Option<String>,
         funded_message: Option<String>,
         reward_messages: Vec<RewardMessage>,
