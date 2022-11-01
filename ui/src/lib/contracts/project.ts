@@ -37,19 +37,17 @@ export type Snip24RewardInit = {
     enable_redeem: boolean;
     enable_mint: boolean;
     enable_burn: boolean;
-    amount: string;
     contributors_vesting_schedule: VestingEvent[];
-    contributors_per_mille: number;
-    minimum_contribution: string;
+    minimum_contribution?: string;
+    maximum_contribution?: string;
     contribution_weight: number;
     creator_vesting_schedule: VestingEvent[];
-    creator_per_mille: number;
     creator_addresses?: string[];
 }
 
 export type VestingEvent = {
     block: number;
-    per_mille: number;
+    amount: string;
 }
 
 export type ProjectChangeTextMsg = {
@@ -58,6 +56,7 @@ export type ProjectChangeTextMsg = {
     description?: string;
     pledged_message?: string;
     funded_message?: string;
+    reward_messages?: ProjectRewardMessage[];
     categories?: number[];
     padding?: string;
 }
@@ -82,8 +81,15 @@ export type ProjectStatusResult = {
     pledged_message?: string;
     funded_message?: string;
     reward_messages?: ProjectRewardMessage[];
+    snip24_rewards?: ProjectVestingRewardStatus[];
     contribution?: string;
 }
+
+export type ProjectVestingRewardStatus = {
+    amount: string;
+    block: number;
+    received: boolean;
+};
 
 export type ProjectStatusNoAuthResult = {
     status: ProjectStatusResult;

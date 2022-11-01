@@ -26,6 +26,8 @@
 	/* --column-width: 52rem; */
 	--column-width: 80rem;
 	--column-margin-top: 4rem;
+	--mdc-theme-on-primary: #fff;
+	--mdc-theme-surface: #032b28;
 }
 
 .ce-block__content, .ce-toolbar__content { max-width:calc(100% - 105px) !important; } .cdx-block { max-width: 100% !important; }
@@ -38,7 +40,7 @@ body {
 		180deg,
 		var(--primary-color) 0%,
 		/* var(--secondary-color) 10.45%, */
-		var(--secondary-color) 5em,
+		var(--secondary-color) 8em,
 		var(--tertiary-color) 41.35%
 	);
 }
@@ -115,6 +117,31 @@ button:focus:not(:focus-visible) {
 	h1 {
 		font-size: 2.4rem;
 	}
+}
+
+.button-beach-tiny {
+	-webkit-appearance: none;
+	background: -webkit-gradient(to right, #064a45 0%, #909090 50%, #340c62 100%);
+	background: linear-gradient(to right, #064a45 0%, #909090 50%, #340c62 100%);
+	background-size: 500%;
+	border: none;
+	border-radius: 5rem;
+	box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+	color: #fff;
+	cursor: pointer;
+	font: 1em Raleway, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	height: 3.5rem;
+	letter-spacing: 0.05em;
+	outline: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	width: 3rem;
+	margin: 1rem 1rem 1rem 1rem;
 }
 
 .button-beach-sm-selected {

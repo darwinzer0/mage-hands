@@ -270,7 +270,7 @@
                 </Cell>
                 <Cell span={12}>
                     {#if !doneProject(projectStatus) && !isProjectCreator(projectStatus.creator)}
-                        <div class="solo-demo-container solo-container">
+                        <div class="solo-demo-container solo-container-left">
                             <Paper class="solo-paper" elevation={6}>
                                 <img src="sscrt.svg" alt="sscrt" style="color:white;"/>
                                 <Input
@@ -287,7 +287,7 @@
                             </button>
                         </div>
                     {/if}
-                    <div class="solo-demo-container solo-container">
+                    <div class="solo-demo-container solo-container-left">
                         {#if projectStatus.contribution && projectStatus.contribution !== '0' && projectStatus.status !== "successful"}
                             <button class="button-beach-sm" on:click={handleRefund} >
                                 <Label>Refund</Label>
@@ -353,6 +353,12 @@
     .solo-container {
         display: flex;
         justify-content: center;
+        align-items: center;
+    }
+
+    .solo-container-left {
+        display: flex;
+        justify-content: start;
         align-items: center;
     }
 

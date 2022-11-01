@@ -16,6 +16,9 @@
 	import Textfield from '@smui/textfield';
   	import CharacterCounter from '@smui/textfield/character-counter';
 	import LayoutGrid, { Cell, InnerGrid } from '@smui/layout-grid';
+	import IconButton from '@smui/icon-button';
+	import Radio from '@smui/radio';
+	import Slider from '@smui/slider';
 	import { Label } from '@smui/button';
     import FormField from '@smui/form-field';
 	import Switch from "@smui/switch";
@@ -28,9 +31,6 @@
 	import Resizer from "react-image-file-resizer"; 
 
 	const platform: PlatformContractInstance = new PlatformContractInstance("platform", PLATFORM_CODE_HASH, PLATFORM_CONTRACT);
-	const denominations = [
-		{ id: 0, text: "sSCRT", img: "sscrt.svg", alt: "sscrt"}
-	];
 
 	type RewardMessage = {
 		message: string,
@@ -49,14 +49,19 @@
 
 	let pledged_message: string = '';
 	let funded_message: string = '';
-	let reward_messages: RewardMessage[] = [];
+	let reward_messages: RewardMessage[] = [
+		{ 
+			message: null,
+		  	threshold: null,
+		}
+	];
     let deadline: number = 14;
 	let goal: string = '';
 
 	// snip24
 	type VestingEvent = {
 		days: number;
-		percentage: number;
+		numberOfTokens: number;
 	};
 
 	let snip24Enabled: boolean = false;
@@ -71,27 +76,38 @@
 	let enableMint: boolean = false;
 	let enableBurn: boolean = false;
 
-	let numberOfTokens: string = '';
+	let contributorNumberOfTokens: number = 0;
+	let creatorInitialNumberOfTokens: number = 0;
+	let creatorVestingSchedule: VestingEvent[] = [];
 
-	let contributorPctTokens: string = '';
-	let contributorVestingSchedule: VestingEvent[] = [];
+	const vestingSum = () : number => {
+		let sum = 0;
+		creatorVestingSchedule.forEach(event => {
+			sum = sum + (+event.numberOfTokens || 0);
+		});
+		return sum;
+	}
 
-	let snip24MinContribution: string = '';
-	let snip24MaxContribution: string = '';
-	let snip24;
+	$: totalInitialSupply = 
+			(+contributorNumberOfTokens || 0) + 
+		   	(+creatorInitialNumberOfTokens || 0) + 
+			creatorVestingSchedule.reduce((partialSum, e) => partialSum + e.numberOfTokens, 0);
+
+	let snip24MinContribution: string = '0';
+	let snip24MaxContribution: string = '10000';
 
 	let result: CreateResponse;
 
 	const subscreens = ["Basics", "Details", "Rewards", "Tokens", "Upload"];
 	let subscreen: string = subscreens[0];
-	const deadlineOptions = [14, 30, 60];
+	const deadlineOptions = [1, 14, 30, 60];
 
     $: invalidProject = title === '' || description === '' || goal === '' || parseFloat(goal) <= 0 || !deadline || categories.length === 0;
 	$: categoryIndexes = categories.map( (category) => {
 		return allCategories.indexOf(category);
 	});
 
-    function clearFields() {
+    const clearFields = () => {
 		title = '';
 		subtitle = '';
 		categories = [];
@@ -109,12 +125,35 @@
 		//toast.push(sub);
 	}
 
+	const validSnip24 = () : boolean => {
+		if (!snip24Enabled) {
+			return true;
+		}
+		if (snip24Name == '' || snip24Symbol == '' || (snip24Admin && !snip24Admin.startsWith("secret")) || snip24Decimals > 18) {
+			return false;
+		}
+		if ((+contributorNumberOfTokens || 0) === 0) {
+			return false;
+		}
+		for (let i = 0; i < creatorVestingSchedule.length; i++) {
+			if ((+creatorVestingSchedule[i].numberOfTokens || 0) == 0) {
+				return false;
+			}
+			if ((+creatorVestingSchedule[i].days || 0) == 0) {
+				return false;
+			}
+		}
+		return true;
+	}
+
     async function handleStartFundraising() {
 		const keplr = get(keplrStore);
     	const {keplrEnabled, scrtAuthorized, scrtClient} = keplr;
 
 		if (invalidProject) {
 			toast.push("Missing required information");
+		} else if (!validSnip24()) {
+			toast.push("SNIP 24 reward is missing information")
 		} else if (!keplrEnabled || !scrtAuthorized) {
         	toast.push("Keplr not enabled");
     	} else {
@@ -169,19 +208,19 @@
 		}
 	}
 
-	function handleNonNegativeInput(event) {
+	const handleNonNegativeInput = (event) => {
 		if (event.target.valueAsNumber < 0) {
 			goal = event.target.value.substring(1);
 		}
 	}
 
-	function handleSymbolInput(event) {
+	const handleSymbolInput = (event) => {
 		if (event.target.value) {
 			snip24Symbol = event.target.value.toUpperCase();
 		}
 	}
 
-	function handleDecimalsInput(event) {
+	const handleDecimalsInput = (event) => {
 		if (event.target.valueAsNumber < 0) {
 			snip24Decimals = 0;
 		}
@@ -190,9 +229,69 @@
 		}
 	}
 
-	function handleAddRewardMessage() {
+	const handleContributorNumberOfTokens = (event) => {
+		if (event.target.valueAsNumber < 0) {
+			contributorNumberOfTokens = +(event.target.value.substring(1));
+		}
+	}
+
+	const handleCreatorInitialNumberOfTokens = (event) => {
+		if (event.target.valueAsNumber < 0) {
+			creatorInitialNumberOfTokens = +(event.target.value.substring(1));
+		}
+	}
+
+	const handleCreatorVestingTokens = (event, idx) => {
+		if (event.target.valueAsNumber < 0) {
+			creatorVestingSchedule[idx].numberOfTokens = +(event.target.value.substring(1));
+		}
+		creatorVestingSchedule = creatorVestingSchedule;
+	}
+
+	const handleCreatorVestingDays = (event, idx) => {
+		if (event.target.valueAsNumber < 0) {
+			creatorVestingSchedule[idx].days = +(event.target.value.substring(1));
+		}
+		creatorVestingSchedule = creatorVestingSchedule;
+	}
+
+	const handleMinContribution = (event) => {
+		if (event.target.valueAsNumber < 0) {
+			snip24MinContribution = event.target.value.substring[1];
+		}
+		if (+snip24MinContribution > +snip24MaxContribution) {
+			snip24MinContribution = snip24MaxContribution;
+		}
+	}
+
+	const handleMaxContribution = (event) => {
+		if (event.target.valueAsNumber < 0) {
+			snip24MaxContribution = event.target.value.substring[1];
+		}
+		if (+snip24MinContribution > +snip24MaxContribution) {
+			snip24MaxContribution = snip24MinContribution;
+		}
+	}
+
+	const handleAddRewardMessage = () => {
 		reward_messages.push({ message: "", threshold: 0 });
 		reward_messages = reward_messages;
+	}
+
+	const handleDeleteRewardMessage = (idx: number) => {
+		toast.push(`${idx}`);
+		reward_messages.splice(idx, 1);
+		reward_messages = reward_messages;
+	};
+
+	const handleAddVestingEvent = () => {
+		creatorVestingSchedule.push({ days: null, numberOfTokens: null });
+		creatorVestingSchedule = creatorVestingSchedule;
+	}
+	
+	const handleDeleteVestingEvent = (idx: number) => {
+		creatorVestingSchedule.splice(idx, 1);
+		creatorVestingSchedule = creatorVestingSchedule;
 	}
 
 	const resizeImage = (img): Promise<string | Blob | File | ProgressEvent<FileReader>> => {
@@ -235,6 +334,9 @@
 					<p>
 						The basic information about your project that will show up on the project list page.
 					</p>
+					<p>
+						All projects must have a title, at least one category, and a fundraising goal.
+					</p>
 				</Cell>
 				<Cell span={9}>
 					<InnerGrid>
@@ -264,16 +366,20 @@
 								<CharacterCounter slot="helper">0 / 100</CharacterCounter>
 							</Textfield>
 						</Cell>
-						<Cell span={3}>
+						<Cell span={2}>
 							<label for="imginput"><h2>Cover</h2></label>
 						</Cell>
-						<Cell span={9}>
-							<input
-								id="imginput"
-								bind:this={rawInput}
-								on:change={onFileChange}
-								  type="file"	
-							/>
+						<Cell span={5}>
+							<div class="edmargin">
+								<input
+									id="imginput"
+									bind:this={rawInput}
+									on:change={onFileChange}
+									type="file"	
+								/>
+							</div>
+						</Cell>
+						<Cell span={5}>
 							{#if cover_img != ''}
 								<img src={cover_img} class="edmargin" />
 							{/if}
@@ -313,6 +419,16 @@
 						</Cell>
 					</InnerGrid>
 				</Cell>
+				<Cell span={3}></Cell>
+				<Cell span={9}>
+					<div class="margins">
+						<div class="solo-demo-container-no-border solo-container">
+							<button on:click={() => {subscreen = subscreens[1]}} class="button-beach-sm">
+								<Label>Next ></Label>
+							</button>
+						</div>
+					</div>
+				</Cell>
 			</LayoutGrid>
 		</div>
 		<div class={subscreen === subscreens[1] ? "" : "hidden-div"}>
@@ -320,6 +436,7 @@
 				<Cell span={3}>
 					<p>
 						Describe your project here. You can embed images or videos on the web by copying the URL into the edit box.
+						Every project must have a description.
 					</p>
 					<p>
 						The more specific information you can add here about your goals for project and vision, 
@@ -341,6 +458,16 @@
 							<Editor bind:outputData={description} editorId="descriptionEditor"/>
 						</Cell>
 					</InnerGrid>
+				</Cell>
+				<Cell span={3}></Cell>
+				<Cell span={9}>
+					<div class="margins">
+						<div class="solo-demo-container-no-border solo-container">
+							<button on:click={() => {subscreen = subscreens[2]}} class="button-beach-sm">
+								<Label>Next ></Label>
+							</button>
+						</div>
+					</div>
 				</Cell>
 			</LayoutGrid>
 		</div>
@@ -378,17 +505,37 @@
 				</Cell>
 				<Cell span={3}>
 					<p>
-						Add special messages that are only visible to contributors who give above a threshold. You can reward big backers with whitelist codes to exclusive NFT drops or encrypted files.
+						Add a special message that is only visible to contributors who give above a threshold. You can reward big backers with whitelist codes to exclusive NFT drops or encrypted files.
 					</p>
 				</Cell>
 				<Cell span={9}>
 					<InnerGrid>
 						<Cell span={12}>
-							<h2>Reward messages</h2>
+							<h2>Reward message</h2>
 						</Cell>
+						<Cell span={12}>
+							<Editor bind:outputData={reward_messages[0].message} editorId={"rewardMessageId"} />
+						</Cell>
+						<Cell span={12}>
+							<div class="solo-demo-container solo-container">
+								Threshold:
+								<Paper class="solo-paper" elevation={6}>
+									<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
+									<Input
+										bind:value={reward_messages[0].threshold}
+										placeholder="Reward threshold"
+										class="solo-input"
+										type="number"
+										style="font-size:16px;"
+										on:input={handleNonNegativeInput}
+									/>
+								</Paper>
+							</div>
+						</Cell>
+<!--
 						{#each reward_messages as reward_message, i}
-							<Cell span={12}>
-								<RewardEditor bind:outputData={reward_messages} messageIdx={i} editorId={"rewardMessageId"+i} />
+							<Cell span={11}>
+								<Editor bind:outputData={reward_messages[i].message} editorId={"rewardMessageId"+entropy()} />
 								<div class="solo-demo-container solo-container">
 									Threshold:
 									<Paper class="solo-paper" elevation={6}>
@@ -404,13 +551,25 @@
 									</Paper>
 								</div>
 							</Cell>
+							<Cell span={1}>
+								<IconButton class="material-icons" on:click={() => handleDeleteRewardMessage(i)}>delete</IconButton>
+							</Cell>
 						{/each}
 						<Cell span={12}>
-							<button class="button-beach-sm" on:click={() => handleAddRewardMessage()} >
-								<Label>Message+</Label>
-							</button>
+							<IconButton class="material-icons" on:click={() => handleAddRewardMessage()}>add</IconButton>
 						</Cell>
+-->
 					</InnerGrid>
+				</Cell>
+				<Cell span={3}></Cell>
+				<Cell span={9}>
+					<div class="margins">
+						<div class="solo-demo-container-no-border solo-container">
+							<button on:click={() => {subscreen = subscreens[3]}} class="button-beach-sm">
+								<Label>Next ></Label>
+							</button>
+						</div>
+					</div>
 				</Cell>
 			</LayoutGrid>
 		</div>
@@ -473,6 +632,17 @@
 										on:input={handleDecimalsInput}
 									/>
 								</Cell>
+								<Cell span={12}>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={snip24Admin}
+										label="Admin address (default: project creator)"
+										input$maxlength={45}
+										input$style="font-size:20px;"
+									/>
+								</Cell>
 							</InnerGrid>
 						</Paper>
 					</Cell>
@@ -515,10 +685,123 @@
 					</Cell>
 					<Cell span={6}>
 						<Paper elevation={6}>
-							<h2>Token disbursement</h2>
+							<h2>Contributor tokens</h2>
+							<InnerGrid>
+								<Cell span={12}>
+									<h3>Total supply of tokens for contributors</h3>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={contributorNumberOfTokens}
+										label="Contributor tokens"
+										input$style="font-size:20px;"
+										type="number"
+										on:input={handleContributorNumberOfTokens}
+									/>
+								</Cell>
+<!--
+								<Cell span={12}>
+									<h3>Minimum contribution to be eligible</h3>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={snip24MinContribution}
+										label="Minimum contribution"
+										input$style="font-size:20px;"
+										type="number"
+										on:input={handleMinContribution}
+									/>
+								</Cell>
+								<Cell span={12}>
+									<h3>Maximum contribution cutoff</h3>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={snip24MaxContribution}
+										label="Contribution cutoff"
+										input$style="font-size:20px;"
+										type="number"
+										on:input={handleMaxContribution}
+									/>
+								</Cell>
+-->
+							</InnerGrid>
 						</Paper>
 					</Cell>
+					<Cell span={6}>
+						<Paper elevation={6}>
+							<h2>Creator tokens</h2>
+							<InnerGrid>
+								<Cell span={12}>
+									<h3>Initial supply of tokens for creator</h3>
+									<Textfield
+										style="width: 100%;"
+										helperLine$style="width: 100%;"
+										variant="outlined"
+										bind:value={creatorInitialNumberOfTokens}
+										label="Creator tokens"
+										input$style="font-size:20px;"
+										type="number"
+										on:input={handleCreatorInitialNumberOfTokens}
+									/>
+								</Cell>
+								<Cell span={12}>
+									<h3>Vesting</h3>
+								</Cell>
+								{#each creatorVestingSchedule as vestingEvent, i}
+									<Cell span={10}>
+										<Textfield
+											style="width: 100%;"
+											helperLine$style="width: 100%;"
+											variant="outlined"
+											bind:value={creatorVestingSchedule[i].numberOfTokens}
+											label={`Vested tokens, step ${i+1}`}
+											input$style="font-size:20px;"
+											type="number"
+											on:input={event => handleCreatorVestingTokens(event, i)}
+										/>
+									</Cell>
+									<Cell span={2}>
+										<IconButton class="material-icons" on:click={() => handleDeleteVestingEvent(i)}>delete</IconButton>
+									</Cell>
+									<Cell span={10}>
+										<Textfield
+											style="width: 100%;"
+											helperLine$style="width: 100%;"
+											variant="outlined"
+											bind:value={creatorVestingSchedule[i].days}
+											label={`Days vesting, step ${i+1}`}
+											input$style="font-size:20px;"
+											type="number"
+											on:input={event => handleCreatorVestingDays(event, i)}
+										/>
+									</Cell>
+									<Cell span={2}></Cell>
+								{/each}
+								<Cell span={12}>
+									<IconButton class="material-icons" on:click={() => handleAddVestingEvent()}>add</IconButton>
+								</Cell>
+							</InnerGrid>
+						</Paper>
+					</Cell>
+					<Cell span={6}>
+						<h2>Total initial supply: {totalInitialSupply}</h2>
+					</Cell>
+				{:else}
+					<Cell span={6}></Cell>
 				{/if}
+				<Cell span={6}>
+					<div class="margins">
+						<div class="solo-demo-container-no-border solo-container">
+							<button on:click={() => {subscreen = subscreens[4]}} class="button-beach-sm">
+								<Label>Next ></Label>
+							</button>
+						</div>
+					</div>
+				</Cell>
 			</LayoutGrid>
 		</div>
 		<div class={subscreen === subscreens[4] ? "" : "hidden-div"}>
@@ -532,16 +815,24 @@
 					</p>
 				</Cell>
 				<Cell span={9}>
-					<div class="lgmargin">
-						<div class="solo-demo-container-no-border solo-container">
-							{#each deadlineOptions as deadlineOption}
-								<div class="radio-days">
-									<label><input type=radio bind:group={deadline} name="deadline" value={deadlineOption} /> {deadlineOption} days</label>
-								</div>
-							{/each}
-						</div>
-					</div>
-		
+					<InnerGrid>
+						{#each deadlineOptions as deadlineOption}
+							<Cell span={12}>
+								<FormField>
+									<Radio
+							  			bind:group={deadline}
+								  		value={deadlineOption}
+									/>
+									<span slot="label">
+								  		{deadlineOption} days
+									</span>
+				  				</FormField>
+							</Cell>							
+						{/each}
+					</InnerGrid>
+				</Cell>
+				<Cell span={3}></Cell>
+				<Cell span={9}>
 					<div class="margins">
 						<div class="solo-demo-container-no-border solo-container">
 							<button on:click={() => handleStartFundraising()} class="button-beach">

@@ -29,7 +29,7 @@
 		<Router { routes } />
 	</main>
 	<footer>
-		<p>[Terms of use]</p>
+		<a href="https://scrt.network">[Secret Network]</a>
 	</footer>
 </div>
 
@@ -65,5 +65,18 @@
 		footer {
 			padding: 40px 0;
 		}
+	}
+
+	a {
+		color: var(--pure-white);
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: none;
+	}
+
+	a:visited {
+		color: var(--pure-white);
 	}
 </style>
