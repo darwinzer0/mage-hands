@@ -11,6 +11,7 @@ import { ProjectContractInstance } from "./project";
 // Local testnet
 export const PLATFORM_CONTRACT = 'secret174kgn5rtw4kf6f938wm7kwh70h2v4vcfft5mqy';
 export const PLATFORM_CODE_HASH = 'e47ec7756b1a08f0ff932290410794522637684851f2cc6ea2ae028ccec4610f';
+export const SSCRT_CODE_ID = 1;
 export const SSCRT_CONTRACT = 'secret18vd8fpwxzck93qlwghaj6arh4p7c5n8978vsyg';
 export const SSCRT_CODE_HASH = '23be3ac5b8142da60b78653b106067213f04933d16d419d8cf8f51c9381f20de';
 

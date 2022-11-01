@@ -8,7 +8,7 @@
 	import { MsgExecuteContractResponse } from "secretjs/dist/protobuf_stuff/secret/compute/v1beta1/msg";
 
 	import { CreateResponse } from "./lib/contract";
-    import { PLATFORM_CODE_HASH, SSCRT_CODE_HASH, PLATFORM_CONTRACT, SSCRT_CONTRACT, ProjectRewardMessage } from './lib/contracts';
+    import { PLATFORM_CODE_HASH, SSCRT_CODE_ID, SSCRT_CODE_HASH, PLATFORM_CONTRACT, SSCRT_CONTRACT, ProjectRewardMessage } from './lib/contracts';
     import { allCategories } from './lib/categories';
 
     import Paper from '@smui/paper';
@@ -188,6 +188,36 @@
 				snip20_hash: SSCRT_CODE_HASH,
 				entropy: entropy(),
 			};
+
+			if (snip24Enabled) {
+				platformCreateMsg.snip24_reward_init = {
+					reward_snip24_code_id: SSCRT_CODE_ID,
+					reward_snip24_code_hash: SSCRT_CODE_HASH,
+					name: snip24Name,
+					symbol: snip24Symbol,
+					decimals: snip24Decimals,
+					admin: scrtClient.address,
+					public_total_supply: enablePublicTokenSupply,
+					enable_deposit: enableDeposit,
+					enable_redeem: enableRedeem,
+					enable_mint: enableMint,
+					enable_burn: enableBurn,
+					contribution_weight: 1, // linear (todo others)
+					contributors_vesting_schedule: [
+						{
+							block: 0,
+							amount: Math.floor(contributorNumberOfTokens).toString(),
+						}
+					],
+					creator_vesting_schedule: creatorVestingSchedule.map( e => {
+						return {
+							block: currentBlock + daysInBlocks(e.days),
+							amount: Math.floor(e.numberOfTokens).toString(),
+						};
+					}),
+					creator_addresses: [ scrtClient.address ],
+				};
+			}
 
 			try {				
 				const tx = await platform.create(scrtClient, platformCreateMsg);
