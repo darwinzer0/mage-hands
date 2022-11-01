@@ -78,6 +78,7 @@ export type ProjectStatusResult = {
     snip20_address: string;
     minimum_pledge: string;
     maximum_pledge: string;
+    snip24_info?: ProjectSnip24Info;
     pledged_message?: string;
     funded_message?: string;
     reward_messages?: ProjectRewardMessage[];
@@ -85,11 +86,29 @@ export type ProjectStatusResult = {
     contribution?: string;
 }
 
+export type ProjectSnip24Info = {
+    name: string;
+    symbol: string;
+    decimals: number;
+    public_total_supply: boolean;
+    enable_deposit: boolean;
+    enable_redeem: boolean;
+    enable_mint: boolean;
+    enable_burn: boolean;
+    contributor_vesting_schedule: VestingEvent[];
+    minimum_contribution?: string;
+    maximum_contribution?: string;
+    contribution_weight: number;
+    creator_vesting_Schedule: VestingEvent[];
+    contract_address?: string;
+    contract_hash?: string;
+}
+
 export type ProjectVestingRewardStatus = {
     amount: string;
     block: number;
     received: boolean;
-};
+}
 
 export type ProjectStatusNoAuthResult = {
     status: ProjectStatusResult;
