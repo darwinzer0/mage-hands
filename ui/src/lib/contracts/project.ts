@@ -99,7 +99,7 @@ export type ProjectSnip24Info = {
     minimum_contribution?: string;
     maximum_contribution?: string;
     contribution_weight: number;
-    creator_vesting_Schedule: VestingEvent[];
+    creator_vesting_schedule: VestingEvent[];
     contract_address?: string;
     contract_hash?: string;
 }

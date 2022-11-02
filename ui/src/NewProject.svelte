@@ -61,7 +61,7 @@
 	// snip24
 	type VestingEvent = {
 		days: number;
-		numberOfTokens: number;
+		numberOfTokens: string;
 	};
 
 	let snip24Enabled: boolean = false;
@@ -76,8 +76,8 @@
 	let enableMint: boolean = false;
 	let enableBurn: boolean = false;
 
-	let contributorNumberOfTokens: number = 0;
-	let creatorInitialNumberOfTokens: number = 0;
+	let contributorNumberOfTokens: string = '';
+	let creatorInitialNumberOfTokens: string = '';
 	let creatorVestingSchedule: VestingEvent[] = [];
 
 	const vestingSum = () : number => {
@@ -89,9 +89,9 @@
 	}
 
 	$: totalInitialSupply = 
-			(+contributorNumberOfTokens || 0) + 
-		   	(+creatorInitialNumberOfTokens || 0) + 
-			creatorVestingSchedule.reduce((partialSum, e) => partialSum + e.numberOfTokens, 0);
+			BigInt(contributorNumberOfTokens.replace(/[^0-9]/gi, '')) + 
+		   	BigInt(creatorInitialNumberOfTokens.replace(/[^0-9]/gi, '')) + 
+			creatorVestingSchedule.reduce((partialSum, e) => partialSum + BigInt(e.numberOfTokens.replace(/[^0-9]/gi, '')), BigInt(0));
 
 	let snip24MinContribution: string = '0';
 	let snip24MaxContribution: string = '10000';
@@ -132,16 +132,19 @@
 		if (snip24Name == '' || snip24Symbol == '' || (snip24Admin && !snip24Admin.startsWith("secret")) || snip24Decimals > 18) {
 			return false;
 		}
-		if ((+contributorNumberOfTokens || 0) === 0) {
+		if (contributorNumberOfTokens === '') {
 			return false;
 		}
 		for (let i = 0; i < creatorVestingSchedule.length; i++) {
-			if ((+creatorVestingSchedule[i].numberOfTokens || 0) == 0) {
+			if (creatorVestingSchedule[i].numberOfTokens === '') {
 				return false;
 			}
 			if ((+creatorVestingSchedule[i].days || 0) == 0) {
 				return false;
 			}
+		}
+		if (totalInitialSupply > BigInt("340282366920938463463374607431768211455")) { // max u128 in rust
+			return false;
 		}
 		return true;
 	}
@@ -206,13 +209,13 @@
 					contributors_vesting_schedule: [
 						{
 							block: 0,
-							amount: Math.floor(contributorNumberOfTokens).toString(),
+							amount: contributorNumberOfTokens,
 						}
 					],
 					creator_vesting_schedule: creatorVestingSchedule.map( e => {
 						return {
 							block: currentBlock + daysInBlocks(e.days),
-							amount: Math.floor(e.numberOfTokens).toString(),
+							amount: e.numberOfTokens,
 						};
 					}),
 					creator_addresses: [ scrtClient.address ],
@@ -261,20 +264,23 @@
 
 	const handleContributorNumberOfTokens = (event) => {
 		if (event.target.valueAsNumber < 0) {
-			contributorNumberOfTokens = +(event.target.value.substring(1));
+			contributorNumberOfTokens = event.target.value.substring(1);
 		}
+		contributorNumberOfTokens = contributorNumberOfTokens.replace(/[^0-9]/gi, '');
 	}
 
 	const handleCreatorInitialNumberOfTokens = (event) => {
 		if (event.target.valueAsNumber < 0) {
-			creatorInitialNumberOfTokens = +(event.target.value.substring(1));
+			creatorInitialNumberOfTokens = event.target.value.substring(1);
 		}
+		creatorInitialNumberOfTokens = creatorInitialNumberOfTokens.replace(/[^0-9]/gi, '');
 	}
 
 	const handleCreatorVestingTokens = (event, idx) => {
 		if (event.target.valueAsNumber < 0) {
-			creatorVestingSchedule[idx].numberOfTokens = +(event.target.value.substring(1));
+			creatorVestingSchedule[idx].numberOfTokens = event.target.value.substring(1);
 		}
+		creatorVestingSchedule[idx].numberOfTokens = creatorVestingSchedule[idx].numberOfTokens.replace(/[^0-9]/gi, '');
 		creatorVestingSchedule = creatorVestingSchedule;
 	}
 
@@ -726,7 +732,6 @@
 										bind:value={contributorNumberOfTokens}
 										label="Contributor tokens"
 										input$style="font-size:20px;"
-										type="number"
 										on:input={handleContributorNumberOfTokens}
 									/>
 								</Cell>
@@ -774,7 +779,6 @@
 										bind:value={creatorInitialNumberOfTokens}
 										label="Creator tokens"
 										input$style="font-size:20px;"
-										type="number"
 										on:input={handleCreatorInitialNumberOfTokens}
 									/>
 								</Cell>
@@ -790,7 +794,6 @@
 											bind:value={creatorVestingSchedule[i].numberOfTokens}
 											label={`Vested tokens, step ${i+1}`}
 											input$style="font-size:20px;"
-											type="number"
 											on:input={event => handleCreatorVestingTokens(event, i)}
 										/>
 									</Cell>

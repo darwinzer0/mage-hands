@@ -8,7 +8,7 @@
 	import { holdForKeplr } from './lib/wallet';
 	import Paper from '@smui/paper';
     import { permitsStore, } from './stores/permits';
-    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, SSCRT_CODE_HASH, SSCRT_CONTRACT, Snip20ContractInstance, ProjectCommentsResult, ProjectComment} from './lib/contracts';
+    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, SSCRT_CODE_HASH, SSCRT_CONTRACT, Snip20ContractInstance, ProjectCommentsResult, ProjectComment, ProjectSnip24Info} from './lib/contracts';
     import { Label } from '@smui/button';
     import { Input } from '@smui/textfield';
     import { SecretNetworkClient, Permit } from 'secretjs';
@@ -17,6 +17,7 @@
     import pako from "pako";
     import LayoutGrid, { Cell } from '@smui/layout-grid';
     import ProjectPreviewCells from './ProjectPreviewCells.svelte';
+    import InnerGrid from '@smui/layout-grid/src/InnerGrid.svelte';
 
     interface ProjectParams {
         contract: string;
@@ -35,6 +36,10 @@
     let scrtClient: SecretNetworkClient = null;
     let currentBlock: number = null;
     let descriptionFromPako = null;
+    let snip24Info: ProjectSnip24Info = null;
+    let totalInitialSupply = null;
+    let contributorNumberOfTokens = null;
+    let creatorNumberOfTokens = null;
     let pledgedMessageFromPako = null;
     let fundedMessageFromPako = null;
     let rewardMessagesFromPako = [];
@@ -86,6 +91,15 @@
             goalNum = parseFloat(projectStatus.goal) / 1000000;
             totalNum = parseFloat(projectStatus.total) / 1000000;
             descriptionFromPako = JSON.parse(pako.ungzip(atob(projectStatus.description), { to: 'string' }));
+
+            // snip24?
+            if (projectStatus.snip24_info) {
+                snip24Info = projectStatus.snip24_info;
+                contributorNumberOfTokens = snip24Info.contributor_vesting_schedule.reduce((partialSum, e) => partialSum + BigInt(e.amount), BigInt(0));
+                creatorNumberOfTokens = snip24Info.creator_vesting_schedule.reduce((partialSum, e) => partialSum + BigInt(e.amount), BigInt(0));
+                totalInitialSupply = contributorNumberOfTokens + creatorNumberOfTokens;
+            }
+
             if (projectStatus.pledged_message) {
                 pledgedMessageFromPako = JSON.parse(pako.ungzip(atob(projectStatus.pledged_message), { to: 'string' }));
             }
@@ -247,6 +261,27 @@
                     <div class="edmargin">
                         <Editor data={descriptionFromPako} editorId="descriptionReader" readOnly={true} />
                     </div>
+                    {#if snip24Info}
+                        <h4>SNIP-24 reward information</h4>
+                        <InnerGrid>
+                            <Cell span={12}>Name: {snip24Info.name}</Cell>
+                        </InnerGrid>
+                        <Cell span={12}>Name: {snip24Info.name}</Cell>
+                        <Cell span={12}>Symbol: {snip24Info.symbol}</Cell>
+                        <Cell span={12}>Decimals: {snip24Info.decimals}</Cell>
+                        <Cell span={12}>Total initial supply: {totalInitialSupply}</Cell>
+                        <Cell span={12}>Enable mint: {snip24Info.enable_mint}</Cell>
+                        <Cell span={12}>Tokens for contributors: {contributorNumberOfTokens}</Cell>
+                        <h4>Creator vesting schedule:</h4> 
+                        {#each snip24Info.creator_vesting_schedule as e}
+                                <Cell span={6}>
+                                    Block: {e.block}
+                                </Cell>
+                                <Cell span={6}>
+                                    Amount: {e.amount}
+                                </Cell>
+                        {/each}
+                    {/if}
                     {#if pledgedMessageFromPako}
                         <h4>Pledged message</h4>
                         <div class="edmargin">
