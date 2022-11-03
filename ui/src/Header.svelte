@@ -3,6 +3,7 @@
     import { location } from 'svelte-spa-router';
 	import { keplrStore } from './stores/keplr';
 	import type { KeplrStore } from './stores/keplr';
+	import SvelteTooltip from 'svelte-tooltip';
 
 	let keplr: KeplrStore;
 	onMount( async () => {
@@ -35,7 +36,9 @@
 
 	<div class="corner">
 		{#if scrtAuthorized}
-			<img src="wallet.png" alt="Wallet available"/>
+			<SvelteTooltip tip={keplr.scrtClient.address} left >
+				<img src="wallet.png" alt="Wallet available"/>
+			</SvelteTooltip>
 		{:else}
 			<img src="wallet_bw.png" alt="Keplr not available"/>
 		{/if}
