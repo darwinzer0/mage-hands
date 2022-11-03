@@ -37,7 +37,7 @@ export type Snip24RewardInit = {
     enable_redeem: boolean;
     enable_mint: boolean;
     enable_burn: boolean;
-    contributors_vesting_schedule: VestingEvent[];
+    contributor_vesting_schedule: VestingEvent[];
     minimum_contribution?: string;
     maximum_contribution?: string;
     contribution_weight: number;

@@ -36,6 +36,7 @@
 </Cell>
 <Cell span={4} align="bottom">
     <div class="coverimg">
+        <!-- svelte-ignore a11y-missing-attribute -->
         <img src={projectStatus.cover_img} />
     </div>
 </Cell>

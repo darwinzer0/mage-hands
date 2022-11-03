@@ -114,10 +114,30 @@
 		description = '';
 		pledged_message = '';
 		funded_message = '';
-		reward_messages = [];
+		reward_messages = [
+			{ 
+				message: null,
+		  		threshold: null,
+			}
+		];
 		goal = '';
 		deadline = null;
 		result = null;
+		snip24Enabled = false;
+
+		snip24Name = '';
+		snip24Symbol = '';
+		snip24Decimals = 6;
+		snip24Admin = '';
+		enablePublicTokenSupply = true;
+		enableDeposit = false;
+		enableRedeem = false;
+		enableMint = false;
+		enableBurn = false;
+
+		contributorNumberOfTokens = '';
+		creatorInitialNumberOfTokens = '';
+		creatorVestingSchedule = [];
 	}
 
 	async function handleSubScreenButton(sub: string) {
@@ -206,18 +226,24 @@
 					enable_mint: enableMint,
 					enable_burn: enableBurn,
 					contribution_weight: 1, // linear (todo others)
-					contributors_vesting_schedule: [
+					contributor_vesting_schedule: [
 						{
 							block: 0,
 							amount: contributorNumberOfTokens,
 						}
 					],
-					creator_vesting_schedule: creatorVestingSchedule.map( e => {
-						return {
-							block: currentBlock + daysInBlocks(e.days),
-							amount: e.numberOfTokens,
-						};
-					}),
+					creator_vesting_schedule: [
+							{
+								block: 0,
+								amount: creatorInitialNumberOfTokens,
+							},
+							...creatorVestingSchedule.map( e => {
+							return {
+								block: currentBlock + daysInBlocks(e.days),
+								amount: e.numberOfTokens,
+							};
+						})
+					],
 					creator_addresses: [ scrtClient.address ],
 				};
 			}
@@ -321,7 +347,7 @@
 	};
 
 	const handleAddVestingEvent = () => {
-		creatorVestingSchedule.push({ days: null, numberOfTokens: null });
+		creatorVestingSchedule.push({ days: 0, numberOfTokens: '' });
 		creatorVestingSchedule = creatorVestingSchedule;
 	}
 	
@@ -648,7 +674,7 @@
 										variant="outlined"
 										bind:value={snip24Symbol}
 										label="Symbol"
-										input$maxlength={12}
+										input$maxlength={6}
 										input$style="font-size:20px;"
 										on:input={handleSymbolInput}
 									>
@@ -765,6 +791,11 @@
 -->
 							</InnerGrid>
 						</Paper>
+						<p>
+							Note, token amounts for contributors and the creator are in the smallest unit 
+							based on decimals value. For example, with decimals set to 6, a value of 1000000 
+							will correspond to 1.0 coin.
+						</p>
 					</Cell>
 					<Cell span={6}>
 						<Paper elevation={6}>

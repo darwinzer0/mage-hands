@@ -35,9 +35,9 @@
 
 	<div class="corner">
 		{#if scrtAuthorized}
-			<img src="keplr24.png" alt="Keplr available"/>
+			<img src="wallet.png" alt="Wallet available"/>
 		{:else}
-			<img src="keplr24bw.png" alt="Keplr not available"/>
+			<img src="wallet_bw.png" alt="Keplr not available"/>
 		{/if}
 	</div>
 </header>

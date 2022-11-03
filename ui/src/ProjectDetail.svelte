@@ -257,51 +257,56 @@
             <LayoutGrid>
                 <ProjectPreviewCells bind:projectStatus bind:currentBlock bind:totalNum bind:goalNum />
                 <Cell span={12}>
-                    <h4>Project Description</h4>
-                    <div class="edmargin">
-                        <Editor data={descriptionFromPako} editorId="descriptionReader" readOnly={true} />
-                    </div>
+                    <InnerGrid>
+                        <Cell span={12}><h3>Project Description</h3></Cell>
+                        <Cell span={12}>
+                            <Editor data={descriptionFromPako} editorId="descriptionReader" readOnly={true} />
+                        </Cell>
                     {#if snip24Info}
-                        <h4>SNIP-24 reward information</h4>
-                        <InnerGrid>
-                            <Cell span={12}>Name: {snip24Info.name}</Cell>
-                        </InnerGrid>
-                        <Cell span={12}>Name: {snip24Info.name}</Cell>
-                        <Cell span={12}>Symbol: {snip24Info.symbol}</Cell>
-                        <Cell span={12}>Decimals: {snip24Info.decimals}</Cell>
-                        <Cell span={12}>Total initial supply: {totalInitialSupply}</Cell>
-                        <Cell span={12}>Enable mint: {snip24Info.enable_mint}</Cell>
-                        <Cell span={12}>Tokens for contributors: {contributorNumberOfTokens}</Cell>
-                        <h4>Creator vesting schedule:</h4> 
-                        {#each snip24Info.creator_vesting_schedule as e}
-                                <Cell span={6}>
-                                    Block: {e.block}
-                                </Cell>
-                                <Cell span={6}>
-                                    Amount: {e.amount}
-                                </Cell>
-                        {/each}
+                        <Cell span={12}>
+                            <Paper elevation={4}>
+                                <InnerGrid>
+                                    <Cell span={12}><h3>SNIP-24 reward information</h3></Cell>
+                                    <Cell span={12}>Name: {snip24Info.name}</Cell>
+                                    <Cell span={12}>Symbol: {snip24Info.symbol}</Cell>
+                                    <Cell span={12}>Decimals: {snip24Info.decimals}</Cell>
+                                    <Cell span={12}>Total initial supply: {totalInitialSupply}</Cell>
+                                    <Cell span={12}>Enable mint: {snip24Info.enable_mint ? "yes" : "no"}</Cell>
+                                    <Cell span={12}>Tokens for contributors: {contributorNumberOfTokens}</Cell>
+                                    <Cell span={12}><h4>Creator vesting schedule:</h4></Cell>
+                                    {#each snip24Info.creator_vesting_schedule as e}
+                                        <Cell span={6}>
+                                            {e.block === 0 ? "Initial disbursement" : "Block: " + e.block.toString()}
+                                        </Cell>
+                                        <Cell span={6}>
+                                            Amount: {e.amount}
+                                        </Cell>
+                                    {/each}            
+                                </InnerGrid>
+                            </Paper>
+                        </Cell>
                     {/if}
                     {#if pledgedMessageFromPako}
-                        <h4>Pledged message</h4>
-                        <div class="edmargin">
+                        <Cell span={12}><h3>Pledged message</h3></Cell>
+                        <Cell span={12}>
                             <Editor data={pledgedMessageFromPako} editorId="pledgeMessageReader" readOnly={true} />
-                        </div>
+                        </Cell>
                     {/if}
                     {#if fundedMessageFromPako}
-                        <h4>Funded message</h4>
-                        <div class="edmargin">
+                        <Cell span={12}><h3>Funded message</h3></Cell>
+                        <Cell span={12}>
                             <Editor data={fundedMessageFromPako} editorId="fundedMessageReader" readOnly={true} />
-                        </div>
+                        </Cell>
                     {/if}
                     {#if rewardMessagesFromPako.length > 0}
-                        <h4>Reward messages</h4>
+                        <Cell span={12}><h3>Reward message</h3></Cell>
                         {#each rewardMessagesFromPako as rewardMessage, i}
-                            <div class="edmargin">
+                            <Cell span={12}>
                                 <Editor data={rewardMessage} editorId={"rewardMessageReader"+i} readOnly={true} />
-                            </div>
+                            </Cell>
                         {/each}
                     {/if}
+                    </InnerGrid>
                 </Cell>
                 <Cell span={12}>
                     {#if !doneProject(projectStatus) && !isProjectCreator(projectStatus.creator)}
