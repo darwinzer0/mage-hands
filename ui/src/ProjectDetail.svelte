@@ -43,6 +43,7 @@
     let pledgedMessageFromPako = null;
     let fundedMessageFromPako = null;
     let rewardMessagesFromPako = [];
+    let rewardMessageFromPako = null;
 
     let contributionValue = "";
 
@@ -112,6 +113,10 @@
                     message: JSON.parse(pako.ungzip(atob(rm.message), { to: 'string' }))
                 };
             });
+            // only one reward message at the moment
+            if (rewardMessagesFromPako.length > 0) {
+                rewardMessageFromPako = rewardMessagesFromPako[0];
+            }
         }
     }
 
@@ -267,6 +272,9 @@
                             <Paper elevation={4}>
                                 <InnerGrid>
                                     <Cell span={12}><h3>SNIP-24 reward information</h3></Cell>
+                                    {#if snip24Info.contract_address}
+                                        <Cell span={12}>Contract: {snip24Info.contract_address}</Cell>
+                                    {/if}
                                     <Cell span={12}>Name: {snip24Info.name}</Cell>
                                     <Cell span={12}>Symbol: {snip24Info.symbol}</Cell>
                                     <Cell span={12}>Decimals: {snip24Info.decimals}</Cell>
@@ -276,7 +284,7 @@
                                     <Cell span={12}><h4>Creator vesting schedule:</h4></Cell>
                                     {#each snip24Info.creator_vesting_schedule as e}
                                         <Cell span={6}>
-                                            {e.block === 0 ? "Initial disbursement" : "Block: " + e.block.toString()}
+                                            {e.block === 0 ? "Initial disbursement" : "Number of blocks: " + e.block.toString()}
                                         </Cell>
                                         <Cell span={6}>
                                             Amount: {e.amount}
@@ -298,13 +306,11 @@
                             <Editor data={fundedMessageFromPako} editorId="fundedMessageReader" readOnly={true} />
                         </Cell>
                     {/if}
-                    {#if rewardMessagesFromPako.length > 0}
+                    {#if rewardMessageFromPako}
                         <Cell span={12}><h3>Reward message</h3></Cell>
-                        {#each rewardMessagesFromPako as rewardMessage, i}
-                            <Cell span={12}>
-                                <Editor data={rewardMessage} editorId={"rewardMessageReader"+i} readOnly={true} />
-                            </Cell>
-                        {/each}
+                        <Cell span={12}>
+                            <Editor data={rewardMessageFromPako.message} editorId="rewardMessageReader" readOnly={true} />
+                        </Cell>
                     {/if}
                     </InnerGrid>
                 </Cell>

@@ -24,7 +24,6 @@
 	import Switch from "@smui/switch";
     import MultiSelect from 'svelte-multiselect';
 	import Editor from './Editor.svelte';
-	import RewardEditor from "./RewardEditor.svelte";
 	import pako from "pako";
     import { PlatformContractInstance, PlatformCreateMsg } from './lib/contracts';
     import { daysInBlocks, entropy, getBlock } from "./lib/utils";
@@ -100,7 +99,7 @@
 
 	const subscreens = ["Basics", "Details", "Rewards", "Tokens", "Upload"];
 	let subscreen: string = subscreens[0];
-	const deadlineOptions = [1, 14, 30, 60];
+	const deadlineOptions = [0.005, 0.5, 1, 14, 30, 60];
 
     $: invalidProject = title === '' || description === '' || goal === '' || parseFloat(goal) <= 0 || !deadline || categories.length === 0;
 	$: categoryIndexes = categories.map( (category) => {
@@ -182,7 +181,7 @@
     	} else {
 			const goalUScrt = (Math.floor(parseFloat(goal) * 1000000)).toString();
 			const currentBlock = await getBlock(scrtClient);
-			const deadlineBlock = daysInBlocks(deadline) + currentBlock;
+			const deadlineBlock = Math.floor(daysInBlocks(deadline)) + currentBlock;
 
 			const pakoDescription = btoa(pako.gzip(description, {to: 'string'}));
 			const pakoPledgedMessage = btoa(pako.gzip(pledged_message, {to: 'string'}));
@@ -437,12 +436,13 @@
 									id="imginput"
 									bind:this={rawInput}
 									on:change={onFileChange}
-									type="file"	
+									type="file"
 								/>
 							</div>
 						</Cell>
 						<Cell span={5}>
 							{#if cover_img != ''}
+								<!-- svelte-ignore a11y-missing-attribute -->
 								<img src={cover_img} class="edmargin" />
 							{/if}
 						</Cell>
@@ -594,33 +594,6 @@
 								</Paper>
 							</div>
 						</Cell>
-<!--
-						{#each reward_messages as reward_message, i}
-							<Cell span={11}>
-								<Editor bind:outputData={reward_messages[i].message} editorId={"rewardMessageId"+entropy()} />
-								<div class="solo-demo-container solo-container">
-									Threshold:
-									<Paper class="solo-paper" elevation={6}>
-										<img src="sscrt.svg" alt="sscrt" style="color:white;"/>
-										<Input
-											bind:value={reward_messages[i].threshold}
-											placeholder="Reward threshold"
-											class="solo-input"
-											type="number"
-											style="font-size:16px;"
-											on:input={handleNonNegativeInput}
-										/>
-									</Paper>
-								</div>
-							</Cell>
-							<Cell span={1}>
-								<IconButton class="material-icons" on:click={() => handleDeleteRewardMessage(i)}>delete</IconButton>
-							</Cell>
-						{/each}
-						<Cell span={12}>
-							<IconButton class="material-icons" on:click={() => handleAddRewardMessage()}>add</IconButton>
-						</Cell>
--->
 					</InnerGrid>
 				</Cell>
 				<Cell span={3}></Cell>
@@ -792,9 +765,13 @@
 							</InnerGrid>
 						</Paper>
 						<p>
-							Note, token amounts for contributors and the creator are in the smallest unit 
-							based on decimals value. For example, with decimals set to 6, a value of 1000000 
-							will correspond to 1.0 coin.
+							Token amounts for contributors and the creator are in the smallest unit 
+							based on the decimals value. For example, with decimals set to 6, a value of 
+							1000000 will correspond to 1.0 coin.
+						</p>
+						<p>
+							Contributors will be allocated tokens proportionally based on their percentage of 
+							the overall contribution amount.
 						</p>
 					</Cell>
 					<Cell span={6}>
@@ -912,18 +889,6 @@
 </section>
 
 <style lang="scss">
-    /* @import url("https://fonts.googleapis.com/css?family=Raleway:500"); */
-
-/*	button {
-		background: var(--accent-color-dark);
-		color: #fff;
-		border: 0;
-		padding: 18px 30px;
-		font-size: 1.2em;
-		border-radius: 6px;
-		cursor: pointer;
-	}
-*/
 	.newproj {
 		width: 100%;
 		max-width: var(--column-width);
@@ -931,7 +896,7 @@
 		line-height: 1;
 	}
 
-	.file-input {
+	#imginput {
 		font-size: 24px;
 	}
 
@@ -941,10 +906,6 @@
 
 	.edmargin {
 		margin: 1rem 0 0 0;
-	}
-
-	.lgmargin {
-		margin: 0 0 2.5rem 0;
 	}
 
 	.slider-select {
@@ -995,11 +956,6 @@
         color: white;
         opacity: 0.7;
     }
-
-	.radio-days {
-    	margin: 0 2em;
-		font-size: 24px;
-  	}
 
 	* :global(.smui-paper) {
 		background-color: #ffffff08;
