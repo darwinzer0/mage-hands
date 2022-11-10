@@ -1033,6 +1033,7 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
     let minmax_pledge = get_pledge_minmax(deps.storage)?;
 
     let snip24 = get_snip24_reward(deps.storage, deps.api)?;
+    let snip24_address = get_snip24_reward_address(deps.storage)?.and_then(|addr| Some(deps.api.addr_humanize(&addr).unwrap()));
     let snip24_info: Option<Snip24Info> = snip24.and_then(|token| { 
         return Some(Snip24Info {
             name: token.name,
@@ -1048,8 +1049,8 @@ fn query_status(deps: Deps) -> StdResult<Binary> {
             contributor_vesting_schedule: token.contributor_vesting_schedule,
             creator_vesting_schedule: token.creator_vesting_schedule,
             contribution_weight: token.contribution_weight,
-            contract_address: None,
-            contract_hash: None,
+            contract_address: snip24_address,
+            contract_hash: Some(token.reward_snip24_code_hash),
         })
     });
 
@@ -1123,6 +1124,7 @@ fn query_status_auth(
     let minmax_pledge = get_pledge_minmax(deps.storage)?;
 
     let snip24 = get_snip24_reward(deps.storage, deps.api)?;
+    let snip24_address = get_snip24_reward_address(deps.storage)?.and_then(|addr| Some(deps.api.addr_humanize(&addr).unwrap()));
     let snip24_info: Option<Snip24Info> = snip24.and_then(|token| { 
         return Some(Snip24Info {
             name: token.name,
@@ -1138,8 +1140,8 @@ fn query_status_auth(
             contributor_vesting_schedule: token.contributor_vesting_schedule,
             creator_vesting_schedule: token.creator_vesting_schedule,
             contribution_weight: token.contribution_weight,
-            contract_address: None,
-            contract_hash: None,
+            contract_address: snip24_address,
+            contract_hash: Some(token.reward_snip24_code_hash),
         })
     });
 
