@@ -16,13 +16,13 @@
 </script>
 
 <svelte:head>
-	<title>Mage Hands</title>
+	<title>Catallaxy</title>
 </svelte:head>
 
 <section in:fade="{{duration: 500}}">
 
 	<h1>
-        Mage Hands
+        Catallaxy
     </h1>
 
     <div class="welcome">
@@ -33,9 +33,12 @@
         </picture>
     </div>
 
-    <h2>
-        Crowdfunding on Secret Network
-    </h2>
+	<div class="dmargin">
+		<h2>
+			Crowdfunding on Secret Network
+		</h2>
+	</div>
+
 <!--
 	<button on:click={handleGetSignature}>
 		Get Signature
@@ -59,7 +62,11 @@
 		width: 100%;
 		color: var(--heading-secondary-color);
 		font-family: var(--font-wizzta);
-		font-size: 72px;
+		font-size: 80px;
+	}
+
+	.dmargin {
+		margin: 2rem 0 0 0;
 	}
 
 	h2 {

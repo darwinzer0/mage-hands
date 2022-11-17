@@ -9,7 +9,8 @@
 	import Paper from '@smui/paper';
 
 	import { permitsStore, } from './stores/permits';
-    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, } from './lib/contracts';
+    import { ProjectStatusResult, ProjectContractInstance, } from './lib/contracts';
+	import { PLATFORM_CONTRACT } from './lib/env';
     import { SecretNetworkClient, Permit } from 'secretjs';
 	import { getBlock } from './lib/utils';
     import LayoutGrid from '@smui/layout-grid';

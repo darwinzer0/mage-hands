@@ -8,8 +8,9 @@
 	import { MsgExecuteContractResponse } from "secretjs/dist/protobuf_stuff/secret/compute/v1beta1/msg";
 
 	import { CreateResponse } from "./lib/contract";
-    import { PLATFORM_CODE_HASH, SSCRT_CODE_ID, SSCRT_CODE_HASH, PLATFORM_CONTRACT, SSCRT_CONTRACT, ProjectRewardMessage } from './lib/contracts';
-    import { allCategories } from './lib/categories';
+    import { ProjectRewardMessage } from './lib/contracts';
+    import { PLATFORM_CODE_HASH, SSCRT_CODE_ID, SSCRT_CODE_HASH, PLATFORM_CONTRACT, SSCRT_CONTRACT, } from './lib/env';
+	import { allCategories } from './lib/categories';
 
     import Paper from '@smui/paper';
     import { Input } from '@smui/textfield';

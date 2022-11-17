@@ -7,7 +7,8 @@
     import type { KeplrStore } from './stores/keplr';
     import { ContractInfo, } from './lib/contract';
     import ProjectPreview from './ProjectPreview.svelte';
-    import { PlatformContractInstance, PLATFORM_CODE_HASH, PLATFORM_CONTRACT} from './lib/contracts';
+    import { PlatformContractInstance, } from './lib/contracts';
+    import { PLATFORM_CODE_HASH, PLATFORM_CONTRACT, } from './lib/env';
 
     const platform: PlatformContractInstance = new PlatformContractInstance("platform", PLATFORM_CODE_HASH, PLATFORM_CONTRACT);
 

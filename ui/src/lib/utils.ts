@@ -46,16 +46,16 @@ export const timeUntilDeadline = (currentBlock: number, deadline: number): strin
     } else {
         const diff = deadline - currentBlock;
         if (diff > daysInBlocks(1)) {
-            const days = Math.floor(diff / (24 * 60 * 10));
-            return days === 1 ? `${days} day` : `${days} days`;
+            const days = Math.ceil(diff / (24 * 60 * 10));
+            return `less than ${days} days left`;
         } else if (diff > hoursInBlocks(1)) {
-            const hours = Math.floor(diff / (60 * 10));
-            return hours === 1 ? `${hours} hour` : `${hours} hours`;
+            const hours = Math.ceil(diff / (60 * 10));
+            return `less than ${hours} hours left`;
         } else if (diff > minutesInBlocks(1)) {
-            const minutes = Math.floor(diff / 10);
-            return minutes === 1 ? `${minutes} minute` : `${minutes} minutes`;
+            const minutes = Math.ceil(diff / 10);
+            return `less than ${minutes} minutes left`;
         } else {
-            return `less than one minute`;
+            return `less than one minute left`;
         }
     }
 }

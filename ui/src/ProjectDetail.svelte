@@ -8,7 +8,8 @@
 	import { holdForKeplr } from './lib/wallet';
 	import Paper from '@smui/paper';
     import { permitsStore, } from './stores/permits';
-    import { ProjectStatusResult, ProjectContractInstance, PLATFORM_CONTRACT, SSCRT_CODE_HASH, SSCRT_CONTRACT, Snip20ContractInstance, ProjectCommentsResult, ProjectComment, ProjectSnip24Info} from './lib/contracts';
+    import { ProjectStatusResult, ProjectContractInstance, Snip20ContractInstance, ProjectComment, ProjectSnip24Info} from './lib/contracts';
+    import { PLATFORM_CONTRACT, SSCRT_CODE_HASH, SSCRT_CONTRACT, } from './lib/env';
     import { Label } from '@smui/button';
     import { Input } from '@smui/textfield';
     import { SecretNetworkClient, Permit } from 'secretjs';
