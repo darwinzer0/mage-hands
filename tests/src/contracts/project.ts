@@ -7,6 +7,7 @@ export type ProjectInitMsg = {
     title: string;
     subtitle?: string;
     description: string;
+    cover_img: string;
     pledged_message?: string;
     funded_message?: string;
     reward_messages: RewardMessage[];
@@ -72,6 +73,7 @@ export type ProjectStatusResult = {
     title: string;
     subtitle: string;
     description: string;
+    cover_img: string;
     categories: number[];
     spam_count: number;
     snip20_address: string;

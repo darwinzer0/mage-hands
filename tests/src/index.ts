@@ -192,6 +192,7 @@ const testProjectNoSnip24Reward = async (projectCode: ContractInfo) => {
         title: "Project 1",
         subtitle: "Subtitle of project 1",
         description: "Description of project 1",
+        cover_img: "http://example.com/img.png",
         pledged_message: "This is pledged message",
         funded_message: "This is funded message",
         reward_messages: [
@@ -233,6 +234,7 @@ const testSuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: Cont
         title: "Project 1",
         subtitle: "Subtitle of project 1",
         description: "Description of project 1",
+        cover_img: "http://example.com/img.png",
         pledged_message: "This is pledged message",
         funded_message: "This is funded message",
         reward_messages: [
@@ -348,6 +350,7 @@ const testUnsuccessfulProjectFromPlatformNoSnip24Reward = async (projectCode: Co
         title: "Project 2",
         subtitle: "Subtitle of project 2",
         description: "Description of project 2",
+        cover_img: "http://example.com/img.png",
         pledged_message: "This is pledged message",
         funded_message: "This is funded message",
         reward_messages: [
@@ -451,12 +454,15 @@ const main = async () => {
     // comment out if running on chain already with sSCRT, and manually add existing contract info to contracts.snip20
     // TODO: add default values for contracts.snip20 on pulsar and mainnet
     await setupSScrtContract(a.signer);
+    p(contracts.sscrt);
 
     let projectContractInfo = await setupProjectContract(a.signer);
+    p(projectContractInfo);
     await setupPlatformContract(a.signer, projectContractInfo);
+    p(contracts.platform);
    
-    await testSuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
-    await testUnsuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
+    //await testSuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
+    //await testUnsuccessfulProjectFromPlatformNoSnip24Reward(projectContractInfo);
 
     console.log("DONE");
 }

@@ -21,6 +21,7 @@ export type PlatformCreateMsg = {
     title: string;
     subtitle?: string;
     description: string;
+    cover_img: string;
     pledged_message?: string;
     funded_message?: string;
     reward_messages: RewardMessage[];

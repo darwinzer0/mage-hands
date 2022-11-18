@@ -18,3 +18,7 @@ Start the LocalSecret dev chain:
 Run `npm start`
 
 Note: SecretJS does not work with node 17, you must use node 16 instead.
+
+### Seeding your wallet with SCRT
+
+docker exec -it localsecret secretcli tx bank send a <YOUR_WALLET ADDRESS> 100000000uscrt
