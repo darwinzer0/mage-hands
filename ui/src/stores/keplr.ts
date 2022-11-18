@@ -2,17 +2,7 @@ import { writable } from "svelte/store";
 import type { ChainInfo, Window as KeplrWindow } from "@keplr-wallet/types";
 import { SecretNetworkClient, StdSignature } from 'secretjs';
 import { permitName } from "./permits";
-import { PLATFORM_CONTRACT } from "src/lib/env";
-
-// Pulsar
-//export const CHAIN_ID = 'pulsar-2';
-//export const SECRET_grpcWebUrl = 'https://grpc.testnet.secretsaturn.net';
-//export const SECRET_LCD = 'https://lcd.testnet.secretsaturn.net';
-
-// Local testnet
-export const CHAIN_ID = 'secretdev-1';
-export const SECRET_grpcWebUrl = "http://localhost:9091";
-export const SECRET_LCD = "http://localhost:1317";
+import { CHAIN_ID, SECRET_grpcWebUrl, PLATFORM_CONTRACT, SECRET_LCD, } from "src/lib/env";
 
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -102,7 +92,7 @@ async function suggestChain(chainId) {
 
     if (chainId === 'secretdev-1') {
         rpc = "http://localhost:26657/";
-        rest = SECRET_LCD;
+        rest = "http://localhost:1317";
         chainName = "Localhost Secret Testnet";
     }
     //} else if (chainId === 'holodeck-2') {

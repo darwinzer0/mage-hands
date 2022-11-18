@@ -14,6 +14,21 @@
 		<link rel="stylesheet" href="/build/bundle.css">
 		<link rel="stylesheet" href="/smui.css">
 		<script defer src="/build/bundle.js"></script>
+
+	<link rel="prefetch" as="image" href="/dendrites-logo.png" data-caip-10="cosmos:pulsar-2:secret1tffa8awm3ycup7a2up5gsrmn99mpcp53myz9v2">
+
+	<script type="application/toml" data-whip-003>
+		[chains.secret-pulsar]
+		namespace = "cosmos"
+		reference = "pulsar-2"
+		label = "Secret Pulsar"
+		bech32s = "secret"
+
+		[contracts.platform]
+		chain = "cosmos:pulsar-2"
+		address = "secret1tffa8awm3ycup7a2up5gsrmn99mpcp53myz9v2"
+		label = "Platform Contract"
+	</script>
 	</head>
 	<body>
 		<noscript>Please enable JavaScript to view this application.</noscript>

@@ -1,7 +1,8 @@
 <script lang="ts">
     import { push } from 'svelte-spa-router';
     import { fade } from 'svelte/transition';
-	import { CHAIN_ID, getSignature } from './stores/keplr';
+	import { CHAIN_ID } from './lib/env';
+	import { getSignature } from './stores/keplr';
 
 	let signature;
 	
@@ -62,7 +63,7 @@
 		width: 100%;
 		color: var(--heading-secondary-color);
 		font-family: var(--font-wizzta);
-		font-size: 80px;
+		font-size: 72px;
 	}
 
 	.dmargin {
