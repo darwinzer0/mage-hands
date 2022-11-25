@@ -36,7 +36,7 @@
 
 	<div class="dmargin">
 		<h2>
-			Crowdfunding on Secret Network
+			Crowdfunding creative projects on Secret Network
 		</h2>
 	</div>
 
@@ -62,7 +62,7 @@
 	h1 {
 		width: 100%;
 		color: var(--heading-secondary-color);
-		font-family: var(--font-wizzta);
+		/* font-family: var(--font-wizzta); */
 		font-size: 72px;
 	}
 

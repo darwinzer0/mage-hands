@@ -771,8 +771,8 @@
 							1000000 will correspond to 1.0 coin.
 						</p>
 						<p>
-							Contributors will be allocated tokens proportionally based on their percentage of 
-							the overall contribution amount.
+							Contributors will be allocated tokens proportionally based on percentage of 
+							the total contribution amount.
 						</p>
 					</Cell>
 					<Cell span={6}>

@@ -33,25 +33,25 @@ export type Snip20BalanceResult = {
 
 export class Snip20ContractInstance extends ContractInstance {
 
-    async deposit(secretjs: SecretNetworkClient, amount: string, gasLimit: number = 150_000): Promise<Tx> {
+    async deposit(secretjs: SecretNetworkClient, amount: string, gasLimit: number = 250_000): Promise<Tx> {
         const msg = { deposit: { } };
         const tx = await this.exec(secretjs, msg, gasLimit, [{amount, denom: "uscrt"}]);
         return tx;
     }
 
-    async send(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 300_000): Promise<Tx> {
+    async send(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 400_000): Promise<Tx> {
         const msg = { send: { recipient, amount } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async transfer(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 150_000): Promise<Tx> {
+    async transfer(secretjs: SecretNetworkClient, recipient: string, amount: string, gasLimit: number = 250_000): Promise<Tx> {
         const msg = { transfer: { recipient, amount } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async createViewingKey(secretjs: SecretNetworkClient, gasLimit: number = 150_000): Promise<string> {
+    async createViewingKey(secretjs: SecretNetworkClient, gasLimit: number = 250_000): Promise<string> {
         const msg = { create_viewing_key: { entropy: entropy() } };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return JSON.parse(fromUtf8(MsgExecuteContractResponse.decode(tx.data[0]).data)).create_viewing_key.key;

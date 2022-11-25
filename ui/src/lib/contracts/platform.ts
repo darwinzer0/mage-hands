@@ -61,19 +61,19 @@ export type PlatformProjectsResult = {
 
 export class PlatformContractInstance extends ContractInstance {
 
-    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 2_500_000): Promise<Tx> {
+    async create(secretjs: SecretNetworkClient, createMsg: PlatformCreateMsg, gasLimit: number = 3_000_000): Promise<Tx> {
         const msg = { create: createMsg };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async config(secretjs: SecretNetworkClient, configMsg: PlatformConfigMsg, gasLimit: number = 150_000): Promise<Tx> {
+    async config(secretjs: SecretNetworkClient, configMsg: PlatformConfigMsg, gasLimit: number = 250_000): Promise<Tx> {
         const msg = { config: configMsg };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;
     }
 
-    async register(secretjs: SecretNetworkClient, registerMsg: PlatformRegisterMsg, gasLimit: number = 150_000): Promise<Tx> {
+    async register(secretjs: SecretNetworkClient, registerMsg: PlatformRegisterMsg, gasLimit: number = 250_000): Promise<Tx> {
         const msg = { register: registerMsg };
         const tx = await this.exec(secretjs, msg, gasLimit);
         return tx;

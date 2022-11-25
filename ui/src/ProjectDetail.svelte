@@ -3,7 +3,8 @@
     import { keplrStore } from "./stores/keplr";
 	import { get } from 'svelte/store';
     import { toast } from '@zerodevx/svelte-toast';
-    import { CHAIN_ID, getSignature, KeplrStore } from './stores/keplr';
+    import { getSignature, KeplrStore } from './stores/keplr';
+    import { CHAIN_ID } from './lib/env';
     import { permitName } from './stores/permits';
 	import { holdForKeplr } from './lib/wallet';
 	import Paper from '@smui/paper';

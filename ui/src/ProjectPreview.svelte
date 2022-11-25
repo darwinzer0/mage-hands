@@ -2,7 +2,8 @@
 	import { scale } from 'svelte/transition';
     import { toast } from '@zerodevx/svelte-toast';
 	import { push } from 'svelte-spa-router';
-	import { CHAIN_ID, getSignature, KeplrStore } from './stores/keplr';
+	import { getSignature, KeplrStore } from './stores/keplr';
+	import { CHAIN_ID } from './lib/env';
 	import { permitName } from './stores/permits';
 	import { holdForKeplr } from './lib/wallet';
     import { ContractInfo, } from './lib/contract';
@@ -65,6 +66,7 @@
 				const queryMsg = { status: {} };
 				projectStatus = await projectContract.queryStatus(scrtClient);
 			}
+			console.log(projectStatus);
 			goalNum = parseFloat(projectStatus.goal) / 1000000;
             totalNum = parseFloat(projectStatus.total) / 1000000;
         }
