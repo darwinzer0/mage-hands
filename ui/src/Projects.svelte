@@ -58,7 +58,7 @@
 </script>
 
 <svelte:head>
-	<title>Mage Hands: Projects</title>
+	<title>Catallaxy: Projects</title>
 </svelte:head>
 
 <section in:fade="{{duration: 500}}">

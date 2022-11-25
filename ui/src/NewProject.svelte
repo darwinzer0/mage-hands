@@ -371,7 +371,7 @@
 </script>
 
 <svelte:head>
-	<title>Mage Hands: Create</title>
+	<title>Catallaxy: Create</title>
 </svelte:head>
 
 <section in:fade="{{duration: 500}}" class="newproj">
