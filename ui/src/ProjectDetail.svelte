@@ -69,15 +69,16 @@
 				permit = permits[scrtClient.address];
 			} else {
 				try {
-					let signature = await getSignature(CHAIN_ID);
+					let amino = await getSignature(CHAIN_ID);
+                    let signedPermit = amino.signed.msgs[0].value;
 					permit = {
 						params: {
-							allowed_tokens: [PLATFORM_CONTRACT],
+							allowed_tokens: signedPermit.allowed_tokens,
 							chain_id: CHAIN_ID,
-							permit_name: permitName,
-							permissions: ["owner"],
+							permit_name: signedPermit.permit_name,
+							permissions: signedPermit.permissions,
 						},
-						signature
+						signature: amino.signature,
 					}
 					permitsStore.set({...permits, [scrtClient.address]: permit});
 				} catch (err) {

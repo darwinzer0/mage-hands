@@ -150,12 +150,12 @@ async function suggestChain(chainId) {
     }
 }
 
-export async function getSignature(chainId): Promise<StdSignature> {
+export async function getSignature(chainId): Promise<{StdSignature, StdSignDoc}> {
     const keplrOfflineSigner = window.getOfflineSigner(chainId);
     const accounts = await keplrOfflineSigner.getAccounts();
     const myAddress = accounts[0].address;
 
-    const { signature } = await window.keplr.signAmino(
+    const { signed, signature } = await window.keplr.signAmino(
         chainId,
         myAddress,
         {
@@ -183,7 +183,7 @@ export async function getSignature(chainId): Promise<StdSignature> {
             preferNoSetMemo: true,
         }
     );
-    return signature;
+    return { signature, signed };
 }
 
 export const keplrStore = createKeplrStore();
