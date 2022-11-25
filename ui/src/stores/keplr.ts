@@ -3,6 +3,7 @@ import type { ChainInfo, Window as KeplrWindow } from "@keplr-wallet/types";
 import { SecretNetworkClient, StdSignature } from 'secretjs';
 import { permitName } from "./permits";
 import { CHAIN_ID, SECRET_grpcWebUrl, PLATFORM_CONTRACT, SECRET_LCD, } from "src/lib/env";
+import { StdSignDoc } from "secretjs/dist/wallet_amino";
 
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -150,7 +151,12 @@ async function suggestChain(chainId) {
     }
 }
 
-export async function getSignature(chainId): Promise<{StdSignature, StdSignDoc}> {
+export type AminoSig = {
+    signed: StdSignDoc,
+    signature: StdSignature;
+}
+
+export async function getSignature(chainId): Promise<AminoSig> {
     const keplrOfflineSigner = window.getOfflineSigner(chainId);
     const accounts = await keplrOfflineSigner.getAccounts();
     const myAddress = accounts[0].address;
