@@ -23,6 +23,12 @@
         <h1 class="expired">Not funded</h1>
     {/if}
 </Cell>
+<Cell span={4} align="bottom">
+    <div class="coverimg">
+        <!-- svelte-ignore a11y-missing-attribute -->
+        <img src={projectStatus.cover_img} />
+    </div>
+</Cell>
 <Cell span={8} align="bottom">
     <h1 class="title">{projectStatus.title}</h1>
     <h2>{projectStatus.subtitle}</h2>
@@ -32,12 +38,6 @@
                 <Text>{chip}</Text>
             </Chip>
         </Set>
-    </div>
-</Cell>
-<Cell span={4} align="bottom">
-    <div class="coverimg">
-        <!-- svelte-ignore a11y-missing-attribute -->
-        <img src={projectStatus.cover_img} />
     </div>
 </Cell>
 <Cell span={12}>
@@ -61,13 +61,13 @@
 		font-size: 1rem;
 		font-weight: 700;
 	}
-
+/*
 	.coverimg {
 		display: flex;
     	justify-content: flex-end;
 		width: 200px;
 	}
-
+*/
 	.banner {
 		text-align: center;
 		font-size: 20px;
